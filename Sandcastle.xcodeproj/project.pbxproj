@@ -10,9 +10,24 @@
 		FA22D0A32F47537A0011992B /* Sandcastle.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sandcastle.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		FA22D2822F47EA120011992B /* Exceptions for "Sandcastle" folder in "Sandcastle" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Gemini/Caching/README.md,
+				Gemini/Live/README.md,
+				Gemini/README.md,
+			);
+			target = FA22D0A22F47537A0011992B /* Sandcastle */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		FA22D0A52F47537A0011992B /* Sandcastle */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FA22D2822F47EA120011992B /* Exceptions for "Sandcastle" folder in "Sandcastle" target */,
+			);
 			path = Sandcastle;
 			sourceTree = "<group>";
 		};
