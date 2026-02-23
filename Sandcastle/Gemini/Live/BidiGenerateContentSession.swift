@@ -74,7 +74,19 @@ final actor BidiGenerateContentSession {
         }
         let rawMessage = try encoder.encode(message)
         let stringyMessage = String(decoding: rawMessage, as: UTF8.self)
-        Self.logger.debug("send: \(stringyMessage)")
+        
+        let shouldLog: Bool = if case .realtimeInput(let realtimeInput) = message,
+                                 realtimeInput.activityStart == nil, realtimeInput.activityEnd == nil,
+                                 realtimeInput.audioStreamEnd == nil,
+                                 realtimeInput.text == nil {
+            false // these are incredibly noisy, and there probably isn't very much to learn from these logs
+        } else {
+            true
+        }
+        if shouldLog {
+            Self.logger.debug("send: \(self.processMessageForLogging(rawMessage))")
+        }
+        
         try await webSocketTask.send(.string(stringyMessage))
     }
     
@@ -84,23 +96,49 @@ final actor BidiGenerateContentSession {
         let encodedMessage: Data
         switch message {
         case .data(let data):
-            if let string = String.init(data: data, encoding: .utf8) {
-                Self.logger.debug("recv: [data] [utf8] \(string)")
-            } else {
-                Self.logger.debug("recv: [data] [binary] \(data)")
-            }
-            
             encodedMessage = data
         case .string(let string):
-            Self.logger.debug("recv: [string] \(string)")
-            
             encodedMessage = Data(string.utf8)
         @unknown default:
             throw WebSocketError.unknownMessageType
         }
+        Self.logger.debug("recv: \(self.processMessageForLogging(encodedMessage))")
         
         let decodedMessage = try decoder.decode(BidiGenerateContentServerMessage.self, from: encodedMessage)
         return decodedMessage
+    }
+    
+    private static func processAnyJsonForLogging(_ json: AnyJson) -> AnyJson {
+        switch json {
+        case .string(let string):
+            let stringCount: Int = string.count
+            // randomly selected
+            if stringCount > 512 {
+                return .string("[truncated] \(stringCount) characters")
+            }
+            return json
+        case .array(let array):
+            return .array(array.map(processAnyJsonForLogging))
+        case .dictionary(let dictionary):
+            return .dictionary(dictionary.mapValues(processAnyJsonForLogging))
+        case .number, .bool, .null:
+            return json
+        }
+    }
+    
+    private func processMessageForLogging(_ encodedMessage: Data) -> String {
+        do {
+            let decoded = try decoder.decode(AnyJson.self, from: encodedMessage)
+            let processed = Self.processAnyJsonForLogging(decoded)
+            
+            let encoded = try encoder.encode(processed)
+            return "[json] " + String(decoding: encoded, as: UTF8.self)
+        } catch {
+            if let string = String(data: encodedMessage, encoding: .utf8) {
+                return "[utf8] " + string
+            }
+            return "[binary] " + encodedMessage.description
+        }
     }
     
     func disconnect() {
