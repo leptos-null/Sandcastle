@@ -42,3 +42,13 @@ extension Protobuf {
         }
     }
 }
+
+extension Protobuf {
+    /// Represents the protobuf `bytes` type
+    ///
+    /// As described in <https://developers.google.com/discovery/v1/type-format>
+    ///
+    /// - Note: Requires `JSONEncoder` to use `dataEncodingStrategy = .base64` (the default)
+    /// and `JSONDecoder` to use `dataDecodingStrategy = .base64` (the default)
+    typealias Bytes = Foundation.Data
+}

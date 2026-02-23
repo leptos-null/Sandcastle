@@ -42,9 +42,7 @@ struct Part {
     /// Indicates if the part is thought from the model.
     let thought: Bool?
     /// An opaque signature for the thought so it can be reused in subsequent requests.
-    ///
-    /// A base64-encoded string.
-    let thoughtSignature: String?
+    let thoughtSignature: Protobuf.Bytes?
     /// Custom metadata associated with the Part.
     ///
     /// Agents using `genai.Part` as content representation may need to keep track of the additional information.
@@ -79,7 +77,7 @@ extension Part: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         self.thought = try container.decodeIfPresent(Bool.self, forKey: .thought)
-        self.thoughtSignature = try container.decodeIfPresent(String.self, forKey: .thoughtSignature)
+        self.thoughtSignature = try container.decodeIfPresent(Protobuf.Bytes.self, forKey: .thoughtSignature)
         self.partMetadata = try container.decodeIfPresent([String: AnyJson].self, forKey: .partMetadata)
         
         if let value = try container.decodeIfPresent(String.self, forKey: .text) {

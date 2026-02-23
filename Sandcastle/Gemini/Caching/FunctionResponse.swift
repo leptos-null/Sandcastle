@@ -72,9 +72,7 @@ extension FunctionResponse {
         /// For a complete list of supported types, see [Supported file formats](<https://ai.google.dev/gemini-api/docs/prompting_with_media#supported_file_formats>).
         let mimeType: String
         /// Raw bytes for media formats.
-        ///
-        /// A base64-encoded string.
-        let data: String
+        let data: Protobuf.Bytes
     }
 }
 
