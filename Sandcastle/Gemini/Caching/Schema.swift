@@ -107,3 +107,163 @@ enum SchemaType: String, Codable {
     /// Null type.
     case null = "NULL"
 }
+
+extension Schema {
+    static func string(
+        format: String? = nil,
+        title: String? = nil, description: String? = nil,
+        nullable: Bool? = nil,
+        `enum`: [String]? = nil,
+        minLength: String? = nil, maxLength: String? = nil,
+        pattern: String? = nil,
+        example: AnyJson? = nil
+    ) -> Self {
+        .init(
+            type: .string,
+            format: format,
+            title: title, description: description,
+            nullable: nullable,
+            enum: `enum`,
+            maxItems: nil, minItems: nil,
+            properties: nil, required: nil,
+            minProperties: nil, maxProperties: nil,
+            minLength: minLength, maxLength: maxLength,
+            pattern: pattern,
+            example: example,
+            anyOf: nil,
+            propertyOrdering: nil,
+            items: nil,
+            minimum: nil, maximum: nil
+        )
+    }
+    
+    static func number(
+        format: String? = nil,
+        title: String? = nil, description: String? = nil,
+        nullable: Bool? = nil,
+        example: AnyJson? = nil,
+        minimum: Double? = nil,
+        maximum: Double? = nil
+    ) -> Self {
+        .init(
+            type: .number,
+            format: format,
+            title: title, description: description,
+            nullable: nullable,
+            enum: nil,
+            maxItems: nil, minItems: nil,
+            properties: nil, required: nil,
+            minProperties: nil, maxProperties: nil,
+            minLength: nil, maxLength: nil,
+            pattern: nil,
+            example: example,
+            anyOf: nil,
+            propertyOrdering: nil,
+            items: nil,
+            minimum: minimum, maximum: maximum
+        )
+    }
+    
+    static func integer(
+        format: String? = nil,
+        title: String? = nil, description: String? = nil,
+        nullable: Bool? = nil,
+        example: AnyJson? = nil,
+        minimum: Double? = nil, maximum: Double? = nil
+    ) -> Self {
+        .init(
+            type: .integer,
+            format: format,
+            title: title, description: description,
+            nullable: nullable,
+            enum: nil,
+            maxItems: nil, minItems: nil,
+            properties: nil, required: nil,
+            minProperties: nil, maxProperties: nil,
+            minLength: nil, maxLength: nil,
+            pattern: nil,
+            example: example,
+            anyOf: nil,
+            propertyOrdering: nil,
+            items: nil,
+            minimum: minimum, maximum: maximum
+        )
+    }
+    
+    static func boolean(
+        title: String? = nil, description: String? = nil,
+        nullable: Bool? = nil,
+        example: AnyJson? = nil
+    ) -> Self {
+        .init(
+            type: .boolean,
+            format: nil,
+            title: title, description: description,
+            nullable: nullable,
+            enum: nil,
+            maxItems: nil, minItems: nil,
+            properties: nil, required: nil,
+            minProperties: nil, maxProperties: nil,
+            minLength: nil, maxLength: nil,
+            pattern: nil,
+            example: example,
+            anyOf: nil,
+            propertyOrdering: nil,
+            items: nil,
+            minimum: nil, maximum: nil
+        )
+    }
+    
+    static func array(
+        title: String? = nil, description: String? = nil,
+        nullable: Bool? = nil,
+        maxItems: String? = nil, minItems: String? = nil,
+        example: AnyJson? = nil,
+        items: Schema? = nil
+    ) -> Self {
+        .init(
+            type: .array,
+            format: nil,
+            title: title, description: description,
+            nullable: nullable,
+            enum: nil,
+            maxItems: maxItems, minItems: minItems,
+            properties: nil, required: nil,
+            minProperties: nil, maxProperties: nil,
+            minLength: nil, maxLength: nil,
+            pattern: nil,
+            example: example,
+            anyOf: nil,
+            propertyOrdering: nil,
+            items: .init(swiftOptional: items),
+            minimum: nil, maximum: nil
+        )
+    }
+    
+    static func object(
+        title: String? = nil, description: String? = nil,
+        nullable: Bool? = nil,
+        properties: [String: Schema]? = nil, required: [String]? = nil,
+        minProperties: String? = nil, maxProperties: String? = nil,
+        example: AnyJson? = nil,
+        propertyOrdering: [String]? = nil
+    ) -> Self {
+        .init(
+            type: .object,
+            format: nil,
+            title: title, description: description,
+            nullable: nullable,
+            enum: nil,
+            maxItems: nil, minItems: nil,
+            properties: properties, required: required,
+            minProperties: minProperties, maxProperties: maxProperties,
+            minLength: nil, maxLength: nil,
+            pattern: nil,
+            example: example,
+            anyOf: nil,
+            propertyOrdering: propertyOrdering,
+            items: nil,
+            minimum: nil, maximum: nil
+        )
+    }
+}
