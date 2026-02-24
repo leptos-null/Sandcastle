@@ -9,7 +9,6 @@ import Foundation
 import OSLog
 
 final actor BidiGenerateContentSession {
-    private let request: URLRequest
     private let urlSession: URLSession
     
     private static let logger = Logger(subsystem: "BidiGenerateContent", category: "Session")
@@ -21,18 +20,22 @@ final actor BidiGenerateContentSession {
     
     private let webSocketDelegate = BidiWebSocketDelegate(logger: logger)
     
-    init(request: URLRequest) {
-        self.request = request
-        
+    init(urlSession: URLSession) {
+        self.urlSession = urlSession
+    }
+    
+    init() {
         let sessionConfiguration: URLSessionConfiguration = .default
-        self.urlSession = URLSession(configuration: sessionConfiguration)
+        let urlSession = URLSession(configuration: sessionConfiguration)
+        
+        self.init(urlSession: urlSession)
     }
     
     var isConnected: Bool {
         webSocketTask != nil
     }
     
-    func connect() throws -> AsyncThrowingStream<BidiGenerateContentServerMessage, Swift.Error> {
+    func connect(request: URLRequest) throws -> AsyncThrowingStream<BidiGenerateContentServerMessage, Swift.Error> {
         if isConnected {
             throw POSIXError(.EISCONN)
         }
@@ -158,30 +161,42 @@ extension BidiGenerateContentSession {
 }
 
 extension BidiGenerateContentSession {
+    /// API version
+    struct InterfaceVersion: RawRepresentable, Hashable {
+        let rawValue: String
+    }
+}
+
+// at the time of writing, these are the only versions supported for BidiGenerateContent
+extension BidiGenerateContentSession.InterfaceVersion {
+    static let v1alpha: Self = .init(rawValue: "v1alpha")
+    static let v1beta: Self = .init(rawValue: "v1beta")
+}
+
+extension BidiGenerateContentSession {
     // for development convenience - API keys should not be used on-device in production
-    init(apiKey: String) throws {
+    nonisolated static func requestFor(apiKey: String, apiVersion: InterfaceVersion) throws -> URLRequest {
         // https://ai.google.dev/api/live#websocket-connection
-        guard let url = URL(string: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent") else {
+        guard let url = URL(string: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.\(apiVersion.rawValue).GenerativeService.BidiGenerateContent") else {
             throw URLError(.badURL)
         }
         var request = URLRequest(url: url)
         // https://ai.google.dev/api#authentication
         request.addValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
         
-        self.init(request: request)
+        return request
     }
-}
-
-extension BidiGenerateContentSession {
-    init(accessToken: String) throws {
+    
+    // at the time of writing, accessToken authentication is only supported on `InterfaceVersion.v1alpha`
+    nonisolated static func requestFor(accessToken: String, apiVersion: InterfaceVersion) throws -> URLRequest {
         // https://ai.google.dev/api/live#ephemeral-auth-tokens
-        guard let url = URL(string: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained") else {
+        guard let url = URL(string: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.\(apiVersion.rawValue).GenerativeService.BidiGenerateContentConstrained") else {
             throw URLError(.badURL)
         }
         var request = URLRequest(url: url)
         request.addValue("Token \(accessToken)", forHTTPHeaderField: "Authorization")
         
-        self.init(request: request)
+        return request
     }
 }
 
