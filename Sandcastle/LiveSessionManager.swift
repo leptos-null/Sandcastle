@@ -25,6 +25,7 @@ final class LiveSessionManager {
     private var state: State = .idle
     
     let audio = Audio()
+    let transcript = Transcript()
     
     init() {
         audio.manager = self
@@ -63,6 +64,7 @@ final class LiveSessionManager {
                         self.state = .setup
                     }
                     self.audio.onServerMessage(message)
+                    self.transcript.onServerMessage(message)
                 }
             } catch {
                 Self.logger.error("Connection error: \(error)")
@@ -82,6 +84,8 @@ final class LiveSessionManager {
                 responseModalities: [ .audio ],
                 enableAffectiveDialog: true,
             ),
+            inputAudioTranscription: .init(),
+            outputAudioTranscription: .init(),
             proactivity: .init(proactiveAudio: true)
         )
         try await self.bidiSession.send(message: .setup(setup))
@@ -299,5 +303,112 @@ extension LiveSessionManager {
                 notificationCenter.removeObserver(observer)
             }
         }
+    }
+}
+
+extension LiveSessionManager {
+    @MainActor
+    @Observable
+    final class Transcript {
+        private static let logger = Logger(subsystem: "LiveSessionManager", category: "TranscriptAccumulator")
+        
+        private var currentAccumulator: Turn.TranscriptionAccumulator?
+        
+        private var completedTurns: [Turn] = []
+        
+        var turns: [Turn] {
+            var result: [Turn] = completedTurns
+            if let currentAccumulator {
+                result.append(.init(transcriptionAccumulator: currentAccumulator))
+            }
+            return result
+        }
+        
+        private func onPartialTranscript(role: Turn.Role, text: String) {
+            if var currentAccumulator {
+                if currentAccumulator.role == role {
+                    currentAccumulator.text.append(text)
+                    self.currentAccumulator = currentAccumulator
+                } else {
+                    completedTurns.append(.init(transcriptionAccumulator: currentAccumulator))
+                    self.currentAccumulator = .init(role: role, text: text)
+                }
+            } else {
+                self.currentAccumulator = .init(role: role, text: text)
+            }
+        }
+        
+        func onServerMessage(_ message: BidiGenerateContentServerMessage) {
+            guard case .serverContent(let serverContent) = message.messageType else {
+                return
+            }
+            
+            if let inputTranscription = serverContent.inputTranscription {
+                onPartialTranscript(role: .user, text: inputTranscription.text)
+            }
+            
+            if let outputTranscription = serverContent.outputTranscription {
+                onPartialTranscript(role: .model, text: outputTranscription.text)
+            }
+            
+            if serverContent.generationComplete == true,
+               let currentAccumulator, currentAccumulator.role == .model {
+                completedTurns.append(.init(transcriptionAccumulator: currentAccumulator))
+                self.currentAccumulator = nil
+            }
+            
+            if let modelTurn = serverContent.modelTurn {
+                if let currentAccumulator, currentAccumulator.role != .model {
+                    completedTurns.append(.init(transcriptionAccumulator: currentAccumulator))
+                    self.currentAccumulator = nil
+                }
+                
+                let filteredParts = modelTurn.parts.filter { part in
+                    if case .inlineData(let blob) = part.data, blob.mimeType == "audio/pcm;rate=24000" {
+                        return false
+                    }
+                    return true
+                }
+                if !filteredParts.isEmpty {
+                    completedTurns.append(.init(role: .model, parts: filteredParts))
+                }
+            }
+        }
+    }
+}
+
+struct Turn: Identifiable {
+    enum Role: Hashable {
+        case user
+        case model
+    }
+    
+    let id: UUID
+    
+    let role: Role
+    let parts: [Part]
+    
+    init(id: UUID = .init(), role: Role, parts: [Part]) {
+        self.id = id
+        
+        self.role = role
+        self.parts = parts
+    }
+}
+
+extension Turn {
+    struct TranscriptionAccumulator: Identifiable {
+        let id = UUID()
+        
+        let role: Turn.Role
+        var text: String
+    }
+}
+
+extension Turn {
+    init(transcriptionAccumulator transcript: TranscriptionAccumulator) {
+        self.init(id: transcript.id, role: transcript.role, parts: [
+            .init(thought: nil, thoughtSignature: nil, partMetadata: nil, data: .text(transcript.text), metadata: nil)
+        ])
     }
 }
