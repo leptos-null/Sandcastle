@@ -172,6 +172,19 @@ extension BidiGenerateContentSession {
     }
 }
 
+extension BidiGenerateContentSession {
+    init(accessToken: String) throws {
+        // https://ai.google.dev/api/live#ephemeral-auth-tokens
+        guard let url = URL(string: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained") else {
+            throw URLError(.badURL)
+        }
+        var request = URLRequest(url: url)
+        request.addValue("Token \(accessToken)", forHTTPHeaderField: "Authorization")
+        
+        self.init(request: request)
+    }
+}
+
 // (currently) only for debugging/ observability
 private class BidiWebSocketDelegate: NSObject, URLSessionWebSocketDelegate {
     let logger: Logger
