@@ -28,11 +28,13 @@ extension IndirectOptional: Equatable where Wrapped: Equatable {
 
 extension IndirectOptional: Encodable where Wrapped: Encodable {
     func encode(to encoder: any Encoder) throws {
-        guard case .some(let wrapped) = self else {
-            return // nothing to do
-        }
         var container = encoder.singleValueContainer()
-        try container.encode(wrapped)
+        switch self {
+        case .none:
+            try container.encodeNil()
+        case .some(let wrapped):
+            try container.encode(wrapped)
+        }
     }
 }
 
