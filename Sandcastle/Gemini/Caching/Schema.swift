@@ -266,4 +266,29 @@ extension Schema {
             minimum: nil, maximum: nil
         )
     }
+    
+    static func anyOf(
+        title: String? = nil, description: String? = nil,
+        nullable: Bool? = nil,
+        example: AnyJson? = nil,
+        schemas: [Schema]
+    ) -> Self {
+        .init(
+            type: .unspecified,
+            format: nil,
+            title: title, description: description,
+            nullable: nullable,
+            enum: nil,
+            maxItems: nil, minItems: nil,
+            properties: nil, required: nil,
+            minProperties: nil, maxProperties: nil,
+            minLength: nil, maxLength: nil,
+            pattern: nil,
+            example: example,
+            anyOf: schemas,
+            propertyOrdering: nil,
+            items: nil,
+            minimum: nil, maximum: nil
+        )
+    }
 }
