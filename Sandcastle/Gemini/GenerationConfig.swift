@@ -23,6 +23,12 @@ struct GenerationConfig: Codable {
     /// If the requested modalities do not match any of the supported combinations, an error will be returned.
     /// An empty list is equivalent to requesting only text.
     let responseModalities: [Self.Modality]?
+    /// This allows the model to adapt its response style to the input expression and tone.
+    ///
+    /// - Note: At the time of writing, requires ``BidiGenerateContentSession/InterfaceVersion/v1alpha``
+    ///
+    /// <https://ai.google.dev/gemini-api/docs/live-guide#affective-dialog>
+    let enableAffectiveDialog: Bool?
     /// The maximum number of tokens to include in a response candidate.
     ///
     /// - Note: The default value varies by model, see the `Model.output_token_limit` attribute of the Model returned from the getModel function.

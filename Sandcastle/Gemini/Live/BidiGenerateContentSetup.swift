@@ -58,5 +58,8 @@ struct BidiGenerateContentSetup: Codable {
     /// Configures the proactivity of the model.
     ///
     /// This allows the model to respond proactively to the input and to ignore irrelevant input.
+    ///
+    /// - Note: At the time of writing, requires ``BidiGenerateContentSession/InterfaceVersion/v1alpha``
+    /// per <https://ai.google.dev/gemini-api/docs/live-guide#proactive-audio>
     let proactivity: ProactivityConfig?
 }
