@@ -61,6 +61,27 @@ struct GenerationConfig: Codable {
     let imageConfig: ImageConfig?
     /// If specified, the media resolution specified will be used.
     let mediaResolution: MediaResolution?
+    
+    init(
+        responseModalities: [Self.Modality]? = nil,
+        enableAffectiveDialog: Bool? = nil,
+        maxOutputTokens: Int? = nil,
+        presencePenalty: Double? = nil, frequencyPenalty: Double? = nil,
+        enableEnhancedCivicAnswers: Bool? = nil,
+        speechConfig: SpeechConfig? = nil, thinkingConfig: ThinkingConfig? = nil, imageConfig: ImageConfig? = nil,
+        mediaResolution: MediaResolution? = nil
+    ) {
+        self.responseModalities = responseModalities
+        self.enableAffectiveDialog = enableAffectiveDialog
+        self.maxOutputTokens = maxOutputTokens
+        self.presencePenalty = presencePenalty
+        self.frequencyPenalty = frequencyPenalty
+        self.enableEnhancedCivicAnswers = enableEnhancedCivicAnswers
+        self.speechConfig = speechConfig
+        self.thinkingConfig = thinkingConfig
+        self.imageConfig = imageConfig
+        self.mediaResolution = mediaResolution
+    }
 }
 
 extension GenerationConfig {

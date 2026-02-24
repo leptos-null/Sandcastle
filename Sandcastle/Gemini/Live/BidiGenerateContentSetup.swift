@@ -62,4 +62,23 @@ struct BidiGenerateContentSetup: Codable {
     /// - Note: At the time of writing, requires ``BidiGenerateContentSession/InterfaceVersion/v1alpha``
     /// per <https://ai.google.dev/gemini-api/docs/live-guide#proactive-audio>
     let proactivity: ProactivityConfig?
+    
+    init(
+        model: String, generationConfig: GenerationConfig?, systemInstruction: Content? = nil, tools: [Tool]? = nil,
+        realtimeInputConfig: RealtimeInputConfig? = nil, sessionResumption: SessionResumptionConfig? = nil,
+        contextWindowCompression: ContextWindowCompressionConfig? = nil,
+        inputAudioTranscription: AudioTranscriptionConfig? = nil, outputAudioTranscription: AudioTranscriptionConfig? = nil,
+        proactivity: ProactivityConfig? = nil
+    ) {
+        self.model = model
+        self.generationConfig = generationConfig
+        self.systemInstruction = systemInstruction
+        self.tools = tools
+        self.realtimeInputConfig = realtimeInputConfig
+        self.sessionResumption = sessionResumption
+        self.contextWindowCompression = contextWindowCompression
+        self.inputAudioTranscription = inputAudioTranscription
+        self.outputAudioTranscription = outputAudioTranscription
+        self.proactivity = proactivity
+    }
 }
