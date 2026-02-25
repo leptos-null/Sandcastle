@@ -28,6 +28,7 @@ final class LiveSessionManager {
     
     let audio = Audio()
     let transcript = Transcript()
+    let usage = Usage()
     
     init() {
         audio.manager = self
@@ -67,6 +68,7 @@ final class LiveSessionManager {
                     }
                     self.audio.onServerMessage(message)
                     self.transcript.onServerMessage(message)
+                    self.usage.onServerMessage(message)
                 }
             } catch {
                 Self.logger.error("Connection error: \(error)")
@@ -413,5 +415,55 @@ extension Turn {
         self.init(id: transcript.id, role: transcript.role, parts: [
             .init(data: .text(transcript.text))
         ])
+    }
+}
+
+extension LiveSessionManager {
+    @MainActor
+    @Observable
+    final class Usage {
+        // select properties from `UsageMetadata` - see that type for more context
+        struct TokenCount {
+            /// Output only. Number of tokens in the prompt.
+            ///
+            /// When `cachedContent` is set, this is still the total effective prompt size meaning this includes the number of tokens in the cached content.
+            var prompt: Int32
+            /// Number of tokens in the cached part of the prompt (the cached content)
+            var cachedContent: Int32
+            /// Output only. Total number of tokens across all the generated response candidates.
+            var response: Int32
+            /// Output only. Number of tokens present in tool-use prompt(s).
+            var toolUsePrompt: Int32
+            /// Output only. Number of tokens of thoughts for thinking models.
+            var thoughts: Int32
+            /// Output only. Total token count for the generation request (prompt + response candidates).
+            var total: Int32
+        }
+        
+        private static let logger = Logger(subsystem: "LiveSessionManager", category: "Usage")
+        
+        private(set) var tokenCount: TokenCount = .init(
+            prompt: 0,
+            cachedContent: 0,
+            response: 0,
+            toolUsePrompt: 0,
+            thoughts: 0,
+            total: 0
+        )
+        
+        func onServerMessage(_ message: BidiGenerateContentServerMessage) {
+            guard let usageMetadata = message.usageMetadata else { return }
+            
+            var tokenCount = self.tokenCount
+            
+            tokenCount.prompt += usageMetadata.promptTokenCount
+            tokenCount.cachedContent += usageMetadata.cachedContentTokenCount
+            tokenCount.response += usageMetadata.responseTokenCount
+            tokenCount.toolUsePrompt += usageMetadata.toolUsePromptTokenCount
+            tokenCount.thoughts += usageMetadata.thoughtsTokenCount
+            tokenCount.total += usageMetadata.totalTokenCount
+            
+            self.tokenCount = tokenCount
+        }
     }
 }
