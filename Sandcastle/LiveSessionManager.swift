@@ -411,7 +411,7 @@ extension Turn {
 extension Turn {
     init(transcriptionAccumulator transcript: TranscriptionAccumulator) {
         self.init(id: transcript.id, role: transcript.role, parts: [
-            .init(thought: nil, thoughtSignature: nil, partMetadata: nil, data: .text(transcript.text), metadata: nil)
+            .init(data: .text(transcript.text))
         ])
     }
 }

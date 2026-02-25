@@ -59,8 +59,7 @@ struct PartView: View {
 
 #Preview("Standard text") {
     PartView(part: .init(
-        thought: nil, thoughtSignature: nil,
-        partMetadata: nil, data: .text("How tall is the Eiffel Tower?"), metadata: nil
+        data: .text("How tall is the Eiffel Tower?")
     ))
     .scenePadding()
 }
@@ -68,8 +67,8 @@ struct PartView: View {
 #Preview("Thought text") {
     // copy and pasted from a real query
     PartView(part: .init(
-        thought: true, thoughtSignature: nil,
-        partMetadata: nil, data: .text("**Answering the Inquiry**\n\nI have received a simple, factual question about the Eiffel Tower's height. My current thinking is to provide a straightforward, calm response that simply states the tower's height and mentions the antenna. I will prioritize direct information over any emotional embellishment, given the user's neutral tone.\n\n\n"), metadata: nil
+        thought: true,
+        data: .text("**Answering the Inquiry**\n\nI have received a simple, factual question about the Eiffel Tower's height. My current thinking is to provide a straightforward, calm response that simply states the tower's height and mentions the antenna. I will prioritize direct information over any emotional embellishment, given the user's neutral tone.\n\n\n")
     ))
     .scenePadding()
 }

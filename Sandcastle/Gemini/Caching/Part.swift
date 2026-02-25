@@ -52,6 +52,14 @@ struct Part {
     let data: Data
     /// Controls extra preprocessing of data.
     let metadata: Metadata?
+    
+    init(thought: Bool? = nil, thoughtSignature: Protobuf.Bytes? = nil, partMetadata: [String: AnyJson]? = nil, data: Data, metadata: Metadata? = nil) {
+        self.thought = thought
+        self.thoughtSignature = thoughtSignature
+        self.partMetadata = partMetadata
+        self.data = data
+        self.metadata = metadata
+    }
 }
 
 extension Part: Codable {
