@@ -25,6 +25,14 @@ struct ContentView: View {
         }
         .defaultScrollAnchor(.bottom, for: .sizeChanges)
         .animation(.default, value: liveSession.transcript.turns.map(\.id))
+        .safeAreaInset(edge: .bottom) {
+            if liveSession.playground.isShowing {
+                PlaygroundView(playground: liveSession.playground)
+                    .frame(maxHeight: 240)
+                    .scenePadding()
+                    .transition(.scale(0.125, anchor: .bottom).combined(with: .opacity))
+            }
+        }
         .safeAreaInset(edge: .top) {
             if let error = liveSession.recentError {
                 Text(error.localizedDescription)
@@ -35,6 +43,8 @@ struct ContentView: View {
                     .scenePadding()
             }
         }
+        .animation(.default, value: liveSession.playground.isShowing)
+        .animation(.default, value: liveSession.recentError != nil)
         .onAppear {
             liveSession.startIfNeeded()
         }
