@@ -29,9 +29,12 @@ final class LiveSessionManager {
     let audio = Audio()
     let transcript = Transcript()
     let usage = Usage()
+    let tools = Tools()
+    let playground = Playground()
     
     init() {
         audio.manager = self
+        tools.manager = self
     }
     
     func startIfNeeded() {
@@ -69,6 +72,7 @@ final class LiveSessionManager {
                     self.audio.onServerMessage(message)
                     self.transcript.onServerMessage(message)
                     self.usage.onServerMessage(message)
+                    self.tools.onServerMessage(message)
                 }
             } catch {
                 Self.logger.error("Connection error: \(error)")
@@ -83,12 +87,19 @@ final class LiveSessionManager {
             throw StateError()
         }
         
+        self.tools.onSetup()
+        
+        let tools: [Tool] = self.tools.functionProviders.map { provider in
+            Tool(functionDeclarations: provider.functionDeclarations)
+        }
+        
         let setup: BidiGenerateContentSetup = .init(
             model: "models/gemini-2.5-flash-native-audio-preview-12-2025",
             generationConfig: .init(
                 responseModalities: [ .audio ],
                 enableAffectiveDialog: true,
             ),
+            tools: tools,
             inputAudioTranscription: .init(),
             outputAudioTranscription: .init(),
             proactivity: .init(proactiveAudio: true)
@@ -464,6 +475,240 @@ extension LiveSessionManager {
             tokenCount.total += usageMetadata.totalTokenCount
             
             self.tokenCount = tokenCount
+        }
+    }
+}
+
+extension LiveSessionManager {
+    @MainActor
+    @Observable
+    final class Tools {
+        private static let logger = Logger(subsystem: "LiveSessionManager", category: "Tools")
+        
+        fileprivate weak var manager: LiveSessionManager?
+        
+        private var runningFunctionTasks: [String: Task<Void, Never>] = [:]
+        
+        // ideally these should be `weak` references, since this essentially acts as a cache,
+        // but currently it's not an issue to hold strong references to these
+        private var functionResolver: [String: FunctionProvider] = [:]
+        
+        var functionProviders: [FunctionProvider] {
+            guard let manager else { return [] }
+            return [
+                manager.playground,
+            ]
+        }
+        
+        func onSetup() {
+            functionResolver = functionProviders.reduce(into: [:]) { partialResult, provider in
+                for functionDeclaration in provider.functionDeclarations {
+                    if partialResult[functionDeclaration.name] != nil {
+                        Self.logger.warning("Found multiple function providers for \(functionDeclaration.name). Only the first one will be used.")
+                        continue
+                    }
+                    partialResult[functionDeclaration.name] = provider
+                }
+            }
+        }
+        
+        func onServerMessage(_ message: BidiGenerateContentServerMessage) {
+            switch message.messageType {
+            case .toolCall(let toolCall):
+                if let functionCalls = toolCall.functionCalls {
+                    for functionCall in functionCalls {
+                        let functionTask = Task<Void, Never> { [weak self] in
+                            let thinnedResponse: ThinnedFunctionResponse
+                            
+                            if let self { // not using `guard let` so that we don't continue holding a reference to `self` below
+                                if let resolver = self.functionResolver[functionCall.name] {
+                                    thinnedResponse = await resolver.handleFunctionCall(
+                                        name: functionCall.name, parameters: functionCall.args ?? [:]
+                                    )
+                                } else {
+                                    thinnedResponse = .init(response: .dictionary([
+                                        "error": .string("unknown function")
+                                    ]))
+                                }
+                            } else {
+                                return
+                            }
+                            
+                            let fullResponse = FunctionResponse(
+                                id: functionCall.id,
+                                name: functionCall.name,
+                                response: thinnedResponse.response,
+                                parts: thinnedResponse.parts,
+                                willContinue: thinnedResponse.willContinue,
+                                scheduling: thinnedResponse.scheduling
+                            )
+                            
+                            guard let self else { return }
+                            
+                            if let manager = self.manager {
+                                do {
+                                    try await manager.bidiSession.send(message: .toolResponse(.init(functionResponses: [ fullResponse ])))
+                                } catch {
+                                    // TODO: show in UI?
+                                    Self.logger.error("bidiSession.send(message: .toolResponse) -> \(error)")
+                                }
+                            }
+                            
+                            if let functionId = functionCall.id {
+                                self.runningFunctionTasks.removeValue(forKey: functionId)
+                            }
+                        }
+                        if let functionId = functionCall.id {
+                            runningFunctionTasks[functionId] = functionTask
+                        }
+                    }
+                }
+            case .toolCallCancellation(let toolCallCancellation):
+                for functionId in toolCallCancellation.ids {
+                    // it's not particularly important to us if we find an active Task or not
+                    runningFunctionTasks[functionId]?.cancel()
+                }
+            default:
+                break // not tool related
+            }
+        }
+    }
+}
+
+extension LiveSessionManager.Tools {
+    // select properties from `FunctionResponse` - see that type for more context
+    struct ThinnedFunctionResponse {
+        /// The function response in JSON object format.
+        ///
+        /// Callers can use any keys of their choice that fit the function's syntax to return the function output, e.g. "output", "result", etc.
+        /// In particular, if the function call failed to execute, the response can have an "error" key to return error details to the model.
+        let response: AnyJson
+        /// Ordered Parts that constitute a function response.
+        ///
+        /// Parts may have different IANA MIME types.
+        let parts: [FunctionResponse.Part]?
+        /// Signals that function call continues, and more responses will be returned, turning the function call into a generator.
+        ///
+        /// Is only applicable to ``FunctionDeclaration/Behavior/nonBlocking`` function calls, is ignored otherwise.
+        /// If set to false, future responses will not be considered.
+        /// It is allowed to return empty ``FunctionResponse/response`` with `willContinue=False` to signal that the function call is finished.
+        /// This may still trigger the model generation.
+        /// To avoid triggering the generation and finish the function call, additionally set ``scheduling`` to ``Scheduling/silent``.
+        let willContinue: Bool?
+        /// Specifies how the response should be scheduled in the conversation.
+        ///
+        /// Only applicable to ``FunctionDeclaration/Behavior/nonBlocking`` function calls, is ignored otherwise. Defaults to ``Scheduling/whenIdle``.
+        let scheduling: FunctionResponse.Scheduling?
+        
+        init(response: AnyJson, parts: [FunctionResponse.Part]? = nil, willContinue: Bool? = nil, scheduling: FunctionResponse.Scheduling? = nil) {
+            self.response = response
+            self.parts = parts
+            self.willContinue = willContinue
+            self.scheduling = scheduling
+        }
+    }
+    
+    @MainActor
+    protocol FunctionProvider {
+        var functionDeclarations: [FunctionDeclaration] { get }
+        
+        func handleFunctionCall(name: String, parameters: [String: AnyJson]) async -> ThinnedFunctionResponse
+    }
+}
+
+extension LiveSessionManager {
+    @MainActor
+    @Observable
+    final class Playground: Tools.FunctionProvider {
+        enum ColorDescriptor: String, CaseIterable {
+            case black
+            case blue
+            case brown
+            case cyan
+            case gray
+            case green
+            case indigo
+            case mint
+            case orange
+            case pink
+            case purple
+            case red
+            case teal
+            case white
+            case yellow
+        }
+        
+        private static let logger = Logger(subsystem: "LiveSessionManager", category: "Playground")
+        
+        private(set) var isShowing: Bool = false
+        private(set) var colorDescriptor: ColorDescriptor = .blue
+        
+        let functionDeclarations: [FunctionDeclaration] = [
+            .init(
+                name: "playground_set_is_showing", description: "Set if the playground should be shown to the user",
+                behavior: nil, parameters: .object(nullable: false, properties: [
+                    "should_show": .boolean()
+                ]), parametersJsonSchema: nil, response: nil, responseJsonSchema: nil
+            ),
+            .init(
+                name: "playground_set_color", description: "Set the color used in the playground",
+                behavior: nil, parameters: .object(nullable: false, properties: [
+                    "color": .string(format: "enum", nullable: false, enum: ColorDescriptor.allCases.map(\.rawValue))
+                ]), parametersJsonSchema: nil, response: nil, responseJsonSchema: nil
+            ),
+        ]
+        
+        private func handleSetIsShowingCall(parameters: [String: AnyJson]) -> AnyJson {
+            guard let showValue = parameters["should_show"] else {
+                return .dictionary([
+                    "error": .string("missing 'should_show' parameter")
+                ])
+            }
+            guard case .bool(let shouldShow) = showValue else {
+                return .dictionary([
+                    "error": .string("unsupported 'should_show' value")
+                ])
+            }
+            
+            self.isShowing = shouldShow
+            
+            return .dictionary([
+                "status": .string("success")
+            ])
+        }
+        
+        private func handleSetColorCall(parameters: [String: AnyJson]) -> AnyJson {
+            guard let colorValue = parameters["color"] else {
+                return .dictionary([
+                    "error": .string("missing 'color' parameter")
+                ])
+            }
+            guard case .string(let rawColor) = colorValue,
+                  let colorDescriptor = Playground.ColorDescriptor(rawValue: rawColor) else {
+                return .dictionary([
+                    "error": .string("unsupported 'color' value")
+                ])
+            }
+            
+            self.colorDescriptor = colorDescriptor
+            
+            return .dictionary([
+                "status": .string("success")
+            ])
+        }
+        
+        func handleFunctionCall(name: String, parameters: [String: AnyJson]) async -> Tools.ThinnedFunctionResponse {
+            let response: AnyJson = switch name {
+            case "playground_set_is_showing":
+                handleSetIsShowingCall(parameters: parameters)
+            case "playground_set_color":
+                handleSetColorCall(parameters: parameters)
+            default:
+                AnyJson.dictionary([
+                    "error": .string("unknown function")
+                ])
+            }
+            return .init(response: response)
         }
     }
 }
