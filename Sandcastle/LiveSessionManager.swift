@@ -10,6 +10,7 @@ import AVFoundation
 import OSLog
 
 @MainActor
+@Observable
 final class LiveSessionManager {
     private enum State {
         case idle
@@ -23,6 +24,7 @@ final class LiveSessionManager {
     let bidiSession: BidiGenerateContentSession = .init()
     
     private var state: State = .idle
+    private(set) var recentError: Swift.Error?
     
     let audio = Audio()
     let transcript = Transcript()
@@ -31,10 +33,10 @@ final class LiveSessionManager {
         audio.manager = self
     }
     
-    func start() throws {
-        guard case .idle = state else {
-            throw StateError()
-        }
+    func startIfNeeded() {
+        guard case .idle = state else { return }
+        
+        recentError = nil
         state = .connecting
         
         Task<Void, Never> { [weak self] in
@@ -68,6 +70,7 @@ final class LiveSessionManager {
                 }
             } catch {
                 Self.logger.error("Connection error: \(error)")
+                self?.recentError = error
             }
             self?.state = .idle
         }
