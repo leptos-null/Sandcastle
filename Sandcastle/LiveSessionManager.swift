@@ -313,7 +313,7 @@ extension LiveSessionManager {
     @MainActor
     @Observable
     final class Transcript {
-        private static let logger = Logger(subsystem: "LiveSessionManager", category: "TranscriptAccumulator")
+        private static let logger = Logger(subsystem: "LiveSessionManager", category: "Transcript")
         
         private var currentAccumulator: Turn.TranscriptionAccumulator?
         
