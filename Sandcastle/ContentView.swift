@@ -8,17 +8,35 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var liveSession = LiveSessionManager()
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        ScrollView(.vertical) {
+            VStack {
+                ForEach(liveSession.transcript.turns) { turn in
+                    ForEach(turn.parts.enumerated(), id: \.offset) { partOffset, part in
+                        PartView(part: part)
+                            .frame(maxWidth: .infinity, alignment: (turn.role == .user) ? .trailing : .leading)
+                            .padding((turn.role == .user) ? .leading : .trailing, 16)
+                    }
+                }
+            }
+            .scenePadding()
         }
-        .padding()
+        .defaultScrollAnchor(.bottom, for: .sizeChanges)
+        .animation(.default, value: liveSession.transcript.turns.map(\.id))
+        .safeAreaInset(edge: .top) {
+            if let error = liveSession.recentError {
+                Text(error.localizedDescription)
+                    .padding(12)
+                    .frame(maxWidth: .infinity)
+                    .foregroundStyle(.white) // to contrast against `.red`
+                    .background(.red, in: .rect(cornerRadius: 12))
+                    .scenePadding()
+            }
+        }
+        .onAppear {
+            liveSession.startIfNeeded()
+        }
     }
-}
-
-#Preview {
-    ContentView()
 }
