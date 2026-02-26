@@ -330,7 +330,7 @@ extension LiveSessionManager {
     final class Transcript {
         private static let logger = Logger(subsystem: "LiveSessionManager", category: "Transcript")
         
-        private var currentAccumulator: Turn.TranscriptionAccumulator?
+        private var currentAccumulator: TranscriptionAccumulator?
         
         private var completedTurns: [Turn] = []
         
@@ -388,34 +388,40 @@ extension LiveSessionManager {
                     return true
                 }
                 if !filteredParts.isEmpty {
-                    completedTurns.append(.init(role: .model, parts: filteredParts))
+                    completedTurns.append(.init(role: .model, content: .parts(filteredParts)))
                 }
             }
         }
     }
 }
 
-struct Turn: Identifiable {
-    enum Role: Hashable {
-        case user
-        case model
-    }
-    
-    let id: UUID
-    
-    let role: Role
-    let parts: [Part]
-    
-    init(id: UUID = .init(), role: Role, parts: [Part]) {
-        self.id = id
+extension LiveSessionManager.Transcript {
+    nonisolated struct Turn: Identifiable {
+        enum Role: Hashable {
+            case user
+            case model
+        }
         
-        self.role = role
-        self.parts = parts
+        enum Content {
+            case parts([Part])
+            case transcript(String)
+        }
+        
+        let id: UUID
+        
+        let role: Role
+        let content: Content
+        
+        init(id: UUID = .init(), role: Role, content: Content) {
+            self.id = id
+            self.role = role
+            self.content = content
+        }
     }
 }
 
-extension Turn {
-    struct TranscriptionAccumulator: Identifiable {
+extension LiveSessionManager.Transcript {
+    nonisolated struct TranscriptionAccumulator: Identifiable {
         let id = UUID()
         
         let role: Turn.Role
@@ -423,11 +429,9 @@ extension Turn {
     }
 }
 
-extension Turn {
-    init(transcriptionAccumulator transcript: TranscriptionAccumulator) {
-        self.init(id: transcript.id, role: transcript.role, parts: [
-            .init(data: .text(transcript.text))
-        ])
+extension LiveSessionManager.Transcript.Turn {
+    init(transcriptionAccumulator transcript: LiveSessionManager.Transcript.TranscriptionAccumulator) {
+        self.init(id: transcript.id, role: transcript.role, content: .transcript(transcript.text))
     }
 }
 

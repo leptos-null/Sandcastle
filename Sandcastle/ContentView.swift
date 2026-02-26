@@ -13,12 +13,21 @@ struct ContentView: View {
     var body: some View {
         ScrollView(.vertical) {
             VStack {
-                ForEach(liveSession.transcript.turns) { turn in
-                    ForEach(turn.parts.enumerated(), id: \.offset) { partOffset, part in
-                        PartView(part: part)
-                            .frame(maxWidth: .infinity, alignment: (turn.role == .user) ? .trailing : .leading)
-                            .padding((turn.role == .user) ? .leading : .trailing, 16)
+                ForEach(liveSession.transcript.turns) { (turn: LiveSessionManager.Transcript.Turn) in
+                    Group {
+                        switch turn.content {
+                        case .parts(let parts):
+                            ForEach(parts.enumerated(), id: \.offset) { partOffset, part in
+                                PartView(part: part)
+                            }
+                        case .transcript(let string):
+                            TranscriptEntryView {
+                                Text(string)
+                            }
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: (turn.role == .user) ? .trailing : .leading)
+                    .padding((turn.role == .user) ? .leading : .trailing, 16)
                 }
             }
             .scenePadding()

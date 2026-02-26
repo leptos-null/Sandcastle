@@ -10,17 +10,6 @@ import SwiftUI
 struct PartView: View {
     let part: Part
     
-    @Environment(\.colorScheme) private var colorScheme
-    
-    private var backgroundStyle: some ShapeStyle {
-        let opacity: Double = switch colorScheme {
-        case .light: 0.125
-        case .dark: 0.25
-        @unknown default: 0.15
-        }
-        return .secondary.opacity(opacity)
-    }
-    
     private func bestEffortMarkdown(text: String) -> Text {
         do {
             let attributedString = try AttributedString(markdown: text, options: .init(
@@ -35,7 +24,7 @@ struct PartView: View {
     }
     
     var body: some View {
-        Group {
+        TranscriptEntryView {
             switch part.data {
             case .text(let textPart) where part.thought == true:
                 // only "thought" text (that we know of) can have markdown syntax,
@@ -52,8 +41,6 @@ struct PartView: View {
                     .foregroundStyle(.red)
             }
         }
-        .padding(12)
-        .background(backgroundStyle, in: .rect(cornerRadius: 12))
     }
 }
 
