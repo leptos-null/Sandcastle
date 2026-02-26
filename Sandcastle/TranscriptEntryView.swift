@@ -21,6 +21,10 @@ struct TranscriptEntryView<T: View>: View {
         return .secondary.opacity(opacity)
     }
     
+    init(@ViewBuilder content: @escaping () -> T) {
+        self.content = content
+    }
+    
     var body: some View {
         content()
             .padding(12)

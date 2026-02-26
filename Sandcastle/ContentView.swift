@@ -22,7 +22,13 @@ struct ContentView: View {
                             }
                         case .transcript(let string):
                             TranscriptEntryView {
-                                Text(string)
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text(string)
+                                    
+                                    Label("Transcript", systemImage: "waveform")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
                     }

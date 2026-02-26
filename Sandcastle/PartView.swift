@@ -27,12 +27,18 @@ struct PartView: View {
         TranscriptEntryView {
             switch part.data {
             case .text(let textPart) where part.thought == true:
-                // only "thought" text (that we know of) can have markdown syntax,
-                // so, as an optimization, only try parsing as markdown for these.
-                // I've also noticed that "thought" text seems to have extra line breaks,
-                // so trim those
-                bestEffortMarkdown(text: textPart.trimmingCharacters(in: .newlines))
-                    .foregroundStyle(.primary.opacity(0.75))
+                VStack(alignment: .leading, spacing: 12) {
+                    // only "thought" text (that we know of) can have markdown syntax,
+                    // so, as an optimization, only try parsing as markdown for these.
+                    // I've also noticed that "thought" text seems to have extra line breaks,
+                    // so trim those
+                    bestEffortMarkdown(text: textPart.trimmingCharacters(in: .newlines))
+                        .foregroundStyle(.primary.opacity(0.75))
+                    
+                    Label("Thought", systemImage: "brain")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             case .text(let textPart):
                 Text(textPart)
                     .foregroundStyle(.primary)
