@@ -17,6 +17,8 @@ final class LiveSessionManager {
         case connecting
         case connected
         case setup
+        
+        case terminated
     }
     
     private static let logger = Logger(subsystem: "LiveSessionManager", category: "Root")
@@ -78,7 +80,7 @@ final class LiveSessionManager {
                 Self.logger.error("Connection error: \(error)")
                 self?.recentError = error
             }
-            self?.state = .idle
+            self?.state = .terminated
         }
     }
     
