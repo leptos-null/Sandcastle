@@ -484,7 +484,7 @@ extension LiveSessionManager.Transcript.Turn {
 extension LiveSessionManager {
     @MainActor
     @Observable
-    final class Usage {
+    final class Usage: Tools.FunctionProvider {
         // select properties from `UsageMetadata` - see that type for more context
         struct TokenCount {
             /// Output only. Number of tokens in the prompt.
@@ -513,6 +513,40 @@ extension LiveSessionManager {
             thoughts: 0,
             total: 0
         )
+        
+        let functionDeclarations: [FunctionDeclaration] = [
+            .init(
+                name: "meta_get_token_usage", description: "Get the number of tokens used in this session",
+                behavior: nil,
+                parameters: nil, parametersJsonSchema: nil,
+                response: .object(properties: [
+                    "prompt": .integer(description: "Number of tokens in the prompt"),
+                    "cached_content": .integer(description: "Number of tokens in the cached part of the prompt"),
+                    "response": .integer(description: "Total number of tokens across all the generated response candidates"),
+                    "tool_use_prompt": .integer(description: "Number of tokens present in tool-use prompt"),
+                    "thoughts": .integer(description: "Number of tokens of thoughts for thinking models"),
+                    "total": .integer(description: "Total token count for the generation request"),
+                ]), responseJsonSchema: nil
+            )
+        ]
+        
+        func handleFunctionCall(name: String, parameters: [String: AnyJson]) async -> Tools.ThinnedFunctionResponse {
+            guard name == "meta_get_token_usage" else {
+                return .init(response: .dictionary([
+                    "error": .string("unknown function")
+                ]))
+            }
+            
+            let tokenCount = self.tokenCount
+            return .init(response: .dictionary([
+                "prompt": .number(Double(tokenCount.prompt)),
+                "cached_content": .number(Double(tokenCount.cachedContent)),
+                "response": .number(Double(tokenCount.response)),
+                "tool_use_prompt": .number(Double(tokenCount.toolUsePrompt)),
+                "thoughts": .number(Double(tokenCount.thoughts)),
+                "total": .number(Double(tokenCount.total)),
+            ]))
+        }
         
         func onServerMessage(_ message: BidiGenerateContentServerMessage) {
             guard let usageMetadata = message.usageMetadata else { return }
@@ -549,6 +583,7 @@ extension LiveSessionManager {
             guard let manager else { return [] }
             return [
                 manager.playground,
+                manager.usage,
             ]
         }
         
