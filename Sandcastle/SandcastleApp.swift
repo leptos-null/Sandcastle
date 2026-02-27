@@ -11,7 +11,10 @@ import SwiftUI
 struct SandcastleApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            NavigationStack {
+                ContentView()
+                    .navigationTitle("Sandcastle")
+            }
         }
     }
 }
