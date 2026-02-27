@@ -142,6 +142,10 @@ extension LiveSessionManager {
         
         private var defaultNotificationCenterObservers: [NSObjectProtocol] = []
         
+        // input/ user/ microphone audio
+        let inputAudioAnalyzer = SpectrumAnalyzer()
+        // output/ model/ generated audio
+        let outputAudioAnalyzer = SpectrumAnalyzer()
         
         func setupIfNeeded() throws {
             if isSetup { return }
@@ -168,7 +172,7 @@ extension LiveSessionManager {
             ) else {
                 throw AVError(.formatUnsupported)
             }
-            let bufferConverter = AudioBufferConverter()
+            let microphoneBufferConverter = AudioBufferConverter()
             
             // (per link above) the Gemini Live API doesn't _require_ we provide 16kHz audio, however it is preferred.
             // because of this, we could avoid using an `AudioBufferConverter` by adding a Mixer node to the input,
@@ -189,7 +193,7 @@ extension LiveSessionManager {
                 Task<Void, Never> {
                     let targetBuffer: AVAudioPCMBuffer
                     do {
-                        targetBuffer = try await bufferConverter.convert(buffer: buffer, to: targetListenFormat)
+                        targetBuffer = try await microphoneBufferConverter.convert(buffer: buffer, to: targetListenFormat)
                     } catch {
                         Self.logger.error("convert(buffer:to:) -> \(error)")
                         return
@@ -206,6 +210,8 @@ extension LiveSessionManager {
                         return
                     }
                     
+                    self.inputAudioAnalyzer.append(buffer: targetBuffer)
+                    
                     let bufferPointer = UnsafeBufferPointer(start: audioChannelData[0], count: Int(targetBuffer.frameLength))
                     let data = Data(buffer: bufferPointer)
                     
@@ -219,6 +225,23 @@ extension LiveSessionManager {
                     } catch {
                         Self.logger.error("bidiSession.send(message: .realtimeInput) -> \(error)")
                     }
+                }
+            }
+            
+            // use a separate buffer converter instance since the converter caches based on input/output formats,
+            // and the input formats are (very likely) different between the two taps
+            let playerBufferConverter = AudioBufferConverter()
+            mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { [weak self] (buffer: AVAudioPCMBuffer, when: AVAudioTime) in
+                Task<Void, Never> {
+                    let targetBuffer: AVAudioPCMBuffer
+                    do {
+                        targetBuffer = try await playerBufferConverter.convert(buffer: buffer, to: targetListenFormat)
+                    } catch {
+                        Self.logger.error("convert(buffer:to:) -> \(error)")
+                        return
+                    }
+                    guard let self else { return }
+                    self.outputAudioAnalyzer.append(buffer: targetBuffer)
                 }
             }
             

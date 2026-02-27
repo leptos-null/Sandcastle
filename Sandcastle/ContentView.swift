@@ -48,6 +48,14 @@ struct ContentView: View {
                     .transition(.scale(0.125, anchor: .bottom).combined(with: .opacity))
             }
         }
+        .safeAreaInset(edge: .bottom) {
+            ZStack(alignment: .bottom) {
+                SpectrumAnalyzerView(spectrumAnalyzer: liveSession.audio.inputAudioAnalyzer, shading: .color(.orange))
+                SpectrumAnalyzerView(spectrumAnalyzer: liveSession.audio.outputAudioAnalyzer, shading: .color(.indigo))
+            }
+            .frame(height: 120)
+        }
+        .ignoresSafeArea(.container, edges: .bottom)
         .safeAreaInset(edge: .top) {
             if let error = liveSession.recentError {
                 Text(error.localizedDescription)
