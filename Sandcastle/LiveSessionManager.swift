@@ -121,6 +121,7 @@ extension LiveSessionManager {
 
 extension LiveSessionManager {
     @MainActor
+    @Observable
     final class Audio {
         private static let logger = Logger(subsystem: "LiveSessionManager", category: "Audio")
         
@@ -136,11 +137,21 @@ extension LiveSessionManager {
             interleaved: false // since it's 1 channel, this value doesn't really matter
         )
         
+        @ObservationIgnored
         fileprivate weak var manager: LiveSessionManager?
         
+        var isMuted: Bool = false {
+            didSet {
+                guard isSetup else { return }
+                audioEngine.inputNode.isVoiceProcessingInputMuted = isMuted
+            }
+        }
+        
+        @ObservationIgnored
         private var isSetup: Bool = false
         private var wantsRunning: Bool = false
         
+        @ObservationIgnored
         private var defaultNotificationCenterObservers: [NSObjectProtocol] = []
         
         // input/ user/ microphone audio
@@ -159,6 +170,7 @@ extension LiveSessionManager {
             
             let inputNode = audioEngine.inputNode
             try inputNode.setVoiceProcessingEnabled(true)
+            inputNode.isVoiceProcessingInputMuted = isMuted
             
             let mainMixerNode = audioEngine.mainMixerNode
             audioEngine.connect(playerNode, to: mainMixerNode, format: playFormat)
