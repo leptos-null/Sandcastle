@@ -100,6 +100,7 @@ final class LiveSessionManager {
             generationConfig: .init(
                 responseModalities: [ .audio ],
                 enableAffectiveDialog: true,
+                speechConfig: .init(voiceConfig: .init(voiceMetadata: .umbriel))
             ),
             tools: tools,
             inputAudioTranscription: .init(),

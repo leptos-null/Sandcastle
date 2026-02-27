@@ -24,4 +24,10 @@ struct SpeechConfig: Codable {
     /// es-ES, fr-CA, id-ID, it-IT, ja-JP, tr-TR, vi-VN, bn-IN, gu-IN, kn-IN,
     /// ml-IN, mr-IN, ta-IN, te-IN, nl-NL, ko-KR, cmn-CN, pl-PL, ru-RU, and th-TH.
     let languageCode: String?
+    
+    init(voiceConfig: VoiceConfig? = nil, multiSpeakerVoiceConfig: MultiSpeakerVoiceConfig? = nil, languageCode: String? = nil) {
+        self.voiceConfig = voiceConfig
+        self.multiSpeakerVoiceConfig = multiSpeakerVoiceConfig
+        self.languageCode = languageCode
+    }
 }
