@@ -36,6 +36,7 @@ struct ContentView: View {
                     .padding((turn.role == .user) ? .leading : .trailing, 16)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .scenePadding()
         }
         .defaultScrollAnchor(.bottom, for: .sizeChanges)
@@ -68,6 +69,9 @@ struct ContentView: View {
         }
         .animation(.default, value: liveSession.playground.isShowing)
         .animation(.default, value: liveSession.recentError != nil)
+        .onTapGesture(count: 2) {
+            liveSession.audio.isMuted.toggle()
+        }
         .onAppear {
             liveSession.startIfNeeded()
         }
