@@ -393,39 +393,48 @@ extension LiveSessionManager {
         }
         
         func onServerMessage(_ message: BidiGenerateContentServerMessage) {
-            guard case .serverContent(let serverContent) = message.messageType else {
-                return
-            }
-            
-            if let inputTranscription = serverContent.inputTranscription {
-                onPartialTranscript(role: .user, text: inputTranscription.text)
-            }
-            
-            if let outputTranscription = serverContent.outputTranscription {
-                onPartialTranscript(role: .model, text: outputTranscription.text)
-            }
-            
-            if serverContent.generationComplete == true,
-               let currentAccumulator, currentAccumulator.role == .model {
-                completedTurns.append(.init(transcriptionAccumulator: currentAccumulator))
-                self.currentAccumulator = nil
-            }
-            
-            if let modelTurn = serverContent.modelTurn {
-                if let currentAccumulator, currentAccumulator.role != .model {
+            switch message.messageType {
+            case .serverContent(let serverContent):
+                if let inputTranscription = serverContent.inputTranscription {
+                    onPartialTranscript(role: .user, text: inputTranscription.text)
+                }
+                
+                if let outputTranscription = serverContent.outputTranscription {
+                    onPartialTranscript(role: .model, text: outputTranscription.text)
+                }
+                
+                if serverContent.generationComplete == true,
+                   let currentAccumulator, currentAccumulator.role == .model {
                     completedTurns.append(.init(transcriptionAccumulator: currentAccumulator))
                     self.currentAccumulator = nil
                 }
                 
-                let filteredParts = modelTurn.parts.filter { part in
-                    if case .inlineData(let blob) = part.data, blob.mimeType == "audio/pcm;rate=24000" {
-                        return false
+                if let modelTurn = serverContent.modelTurn {
+                    if let currentAccumulator, currentAccumulator.role != .model {
+                        completedTurns.append(.init(transcriptionAccumulator: currentAccumulator))
+                        self.currentAccumulator = nil
                     }
-                    return true
+                    
+                    let filteredParts = modelTurn.parts.filter { part in
+                        if case .inlineData(let blob) = part.data, blob.mimeType == "audio/pcm;rate=24000" {
+                            return false
+                        }
+                        return true
+                    }
+                    if !filteredParts.isEmpty {
+                        completedTurns.append(.init(role: .model, content: .parts(filteredParts)))
+                    }
                 }
-                if !filteredParts.isEmpty {
-                    completedTurns.append(.init(role: .model, content: .parts(filteredParts)))
+            case .toolCall(let toolCall):
+                guard let functionCalls = toolCall.functionCalls else {
+                    return // nothing to do
                 }
+                let turns = functionCalls.map { functionCall in
+                    Turn(role: .model, content: .functionCall(functionCall))
+                }
+                completedTurns.append(contentsOf: turns)
+            default:
+                break // currently nothing to do here
             }
         }
     }
@@ -441,6 +450,7 @@ extension LiveSessionManager.Transcript {
         enum Content {
             case parts([Part])
             case transcript(String)
+            case functionCall(FunctionCall)
         }
         
         let id: UUID

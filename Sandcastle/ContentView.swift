@@ -30,6 +30,8 @@ struct ContentView: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
+                        case .functionCall(let functionCall):
+                            TranscriptFunctionCallView(functionCall: functionCall)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: (turn.role == .user) ? .trailing : .leading)
