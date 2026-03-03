@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Gemini
 import OSLog
 
 final actor BidiGenerateContentSession {
@@ -111,7 +112,7 @@ final actor BidiGenerateContentSession {
         return decodedMessage
     }
     
-    private static func processAnyJsonForLogging(_ json: AnyJson) -> AnyJson {
+    private static func processValueForLogging(_ json: Protobuf.Value) -> Protobuf.Value {
         switch json {
         case .string(let string):
             let stringCount: Int = string.count
@@ -121,9 +122,9 @@ final actor BidiGenerateContentSession {
             }
             return json
         case .array(let array):
-            return .array(array.map(processAnyJsonForLogging))
+            return .array(array.map(processValueForLogging))
         case .dictionary(let dictionary):
-            return .dictionary(dictionary.mapValues(processAnyJsonForLogging))
+            return .dictionary(dictionary.mapValues(processValueForLogging))
         case .number, .bool, .null:
             return json
         }
@@ -131,8 +132,8 @@ final actor BidiGenerateContentSession {
     
     private func processMessageForLogging(_ encodedMessage: Data) -> String {
         do {
-            let decoded = try decoder.decode(AnyJson.self, from: encodedMessage)
-            let processed = Self.processAnyJsonForLogging(decoded)
+            let decoded = try decoder.decode(Protobuf.Value.self, from: encodedMessage)
+            let processed = Self.processValueForLogging(decoded)
             
             let encoded = try encoder.encode(processed)
             return "[json] " + String(decoding: encoded, as: UTF8.self)
@@ -161,20 +162,9 @@ extension BidiGenerateContentSession {
 }
 
 extension BidiGenerateContentSession {
-    /// API version
-    struct InterfaceVersion: RawRepresentable, Hashable {
-        let rawValue: String
-    }
-}
-
-// at the time of writing, these are the only versions supported for BidiGenerateContent
-extension BidiGenerateContentSession.InterfaceVersion {
-    static let v1alpha: Self = .init(rawValue: "v1alpha")
-    static let v1beta: Self = .init(rawValue: "v1beta")
-}
-
-extension BidiGenerateContentSession {
     // for development convenience - API keys should not be used on-device in production
+    //
+    // at the time of writing, `BidiGenerateContent` requires `InterfaceVersion.v1beta` or `InterfaceVersion.v1alpha`
     nonisolated static func requestFor(apiKey: String, apiVersion: InterfaceVersion) throws -> URLRequest {
         // https://ai.google.dev/api/live#websocket-connection
         guard let url = URL(string: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.\(apiVersion.rawValue).GenerativeService.BidiGenerateContent") else {

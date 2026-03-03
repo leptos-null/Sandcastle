@@ -7,6 +7,7 @@
 
 import Foundation
 import AVFoundation
+import Gemini
 import OSLog
 
 @MainActor
@@ -100,7 +101,7 @@ final class LiveSessionManager {
             generationConfig: .init(
                 responseModalities: [ .audio ],
                 enableAffectiveDialog: true,
-                speechConfig: .init(voiceConfig: .init(voiceMetadata: .umbriel))
+                speechConfig: .init(voiceConfig: .init(value: .prebuiltVoiceConfig(.umbriel)))
             ),
             tools: tools,
             inputAudioTranscription: .init(),
@@ -530,22 +531,22 @@ extension LiveSessionManager {
             )
         ]
         
-        func handleFunctionCall(name: String, parameters: [String: AnyJson]) async -> Tools.ThinnedFunctionResponse {
+        func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> Tools.ThinnedFunctionResponse {
             guard name == "meta_get_token_usage" else {
-                return .init(response: .dictionary([
+                return .init(response: [
                     "error": .string("unknown function")
-                ]))
+                ])
             }
             
             let tokenCount = self.tokenCount
-            return .init(response: .dictionary([
+            return .init(response: [
                 "prompt": .number(Double(tokenCount.prompt)),
                 "cached_content": .number(Double(tokenCount.cachedContent)),
                 "response": .number(Double(tokenCount.response)),
                 "tool_use_prompt": .number(Double(tokenCount.toolUsePrompt)),
                 "thoughts": .number(Double(tokenCount.thoughts)),
                 "total": .number(Double(tokenCount.total)),
-            ]))
+            ])
         }
         
         func onServerMessage(_ message: BidiGenerateContentServerMessage) {
@@ -613,9 +614,9 @@ extension LiveSessionManager {
                                         name: functionCall.name, parameters: functionCall.args ?? [:]
                                     )
                                 } else {
-                                    thinnedResponse = .init(response: .dictionary([
+                                    thinnedResponse = .init(response: [
                                         "error": .string("unknown function")
-                                    ]))
+                                    ])
                                 }
                             } else {
                                 return
@@ -669,7 +670,7 @@ extension LiveSessionManager.Tools {
         ///
         /// Callers can use any keys of their choice that fit the function's syntax to return the function output, e.g. "output", "result", etc.
         /// In particular, if the function call failed to execute, the response can have an "error" key to return error details to the model.
-        let response: AnyJson
+        let response: Protobuf.Struct
         /// Ordered Parts that constitute a function response.
         ///
         /// Parts may have different IANA MIME types.
@@ -687,7 +688,7 @@ extension LiveSessionManager.Tools {
         /// Only applicable to ``FunctionDeclaration/Behavior/nonBlocking`` function calls, is ignored otherwise. Defaults to ``Scheduling/whenIdle``.
         let scheduling: FunctionResponse.Scheduling?
         
-        init(response: AnyJson, parts: [FunctionResponse.Part]? = nil, willContinue: Bool? = nil, scheduling: FunctionResponse.Scheduling? = nil) {
+        init(response: Protobuf.Struct, parts: [FunctionResponse.Part]? = nil, willContinue: Bool? = nil, scheduling: FunctionResponse.Scheduling? = nil) {
             self.response = response
             self.parts = parts
             self.willContinue = willContinue
@@ -699,7 +700,7 @@ extension LiveSessionManager.Tools {
     protocol FunctionProvider {
         var functionDeclarations: [FunctionDeclaration] { get }
         
-        func handleFunctionCall(name: String, parameters: [String: AnyJson]) async -> ThinnedFunctionResponse
+        func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> ThinnedFunctionResponse
     }
 }
 
@@ -745,55 +746,55 @@ extension LiveSessionManager {
             ),
         ]
         
-        private func handleSetIsShowingCall(parameters: [String: AnyJson]) -> AnyJson {
+        private func handleSetIsShowingCall(parameters: Protobuf.Struct) -> Protobuf.Struct {
             guard let showValue = parameters["should_show"] else {
-                return .dictionary([
+                return [
                     "error": .string("missing 'should_show' parameter")
-                ])
+                ]
             }
             guard case .bool(let shouldShow) = showValue else {
-                return .dictionary([
+                return [
                     "error": .string("unsupported 'should_show' value")
-                ])
+                ]
             }
             
             self.isShowing = shouldShow
             
-            return .dictionary([
+            return [
                 "status": .string("success")
-            ])
+            ]
         }
         
-        private func handleSetColorCall(parameters: [String: AnyJson]) -> AnyJson {
+        private func handleSetColorCall(parameters: Protobuf.Struct) -> Protobuf.Struct {
             guard let colorValue = parameters["color"] else {
-                return .dictionary([
+                return [
                     "error": .string("missing 'color' parameter")
-                ])
+                ]
             }
             guard case .string(let rawColor) = colorValue,
                   let colorDescriptor = Playground.ColorDescriptor(rawValue: rawColor) else {
-                return .dictionary([
+                return [
                     "error": .string("unsupported 'color' value")
-                ])
+                ]
             }
             
             self.colorDescriptor = colorDescriptor
             
-            return .dictionary([
+            return [
                 "status": .string("success")
-            ])
+            ]
         }
         
-        func handleFunctionCall(name: String, parameters: [String: AnyJson]) async -> Tools.ThinnedFunctionResponse {
-            let response: AnyJson = switch name {
+        func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> Tools.ThinnedFunctionResponse {
+            let response: Protobuf.Struct = switch name {
             case "playground_set_is_showing":
                 handleSetIsShowingCall(parameters: parameters)
             case "playground_set_color":
                 handleSetColorCall(parameters: parameters)
             default:
-                AnyJson.dictionary([
+                [
                     "error": .string("unknown function")
-                ])
+                ]
             }
             return .init(response: response)
         }

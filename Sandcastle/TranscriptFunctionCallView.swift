@@ -6,11 +6,12 @@
 //
 
 import SwiftUI
+import Gemini
 
 struct TranscriptFunctionCallView: View {
     let functionCall: FunctionCall
     
-    private func attributedStringForAnyJson(_ value: AnyJson, indentation: Int) -> AttributedString {
+    private func attributedStringForValue(_ value: Protobuf.Value, indentation: Int) -> AttributedString {
         var attributes = AttributeContainer()
         switch value {
         case .string(let string):
@@ -27,7 +28,7 @@ struct TranscriptFunctionCallView: View {
             
             for (entry, isLast) in array.taggedWithIsLast() {
                 build.append(AttributedString(String(repeating: "\t", count: indentation + 1)))
-                build.append(attributedStringForAnyJson(entry, indentation: indentation + 1))
+                build.append(attributedStringForValue(entry, indentation: indentation + 1))
                 build.append(AttributedString(isLast ? "\n" : ",\n"))
             }
             build.append(AttributedString(String(repeating: "\t", count: indentation)))
@@ -45,7 +46,7 @@ struct TranscriptFunctionCallView: View {
                 build.append(AttributedString(String(repeating: "\t", count: indentation + 1)))
                 build.append(AttributedString("\"\(key)\"", attributes: attributes))
                 build.append(AttributedString(": "))
-                build.append(attributedStringForAnyJson(dictionary[key]!, indentation: indentation + 1))
+                build.append(attributedStringForValue(dictionary[key]!, indentation: indentation + 1))
                 build.append(AttributedString(isLast ? "\n" : ",\n"))
             }
             build.append(AttributedString(String(repeating: "\t", count: indentation)))
@@ -59,7 +60,7 @@ struct TranscriptFunctionCallView: View {
     
     private func attributedCallDescription() -> AttributedString {
         var build = AttributedString("\(functionCall.name)(")
-        build.append(attributedStringForAnyJson(.dictionary(functionCall.args ?? [:]), indentation: 0))
+        build.append(attributedStringForValue(.dictionary(functionCall.args ?? [:]), indentation: 0))
         build.append(AttributedString(")"))
         return build
     }

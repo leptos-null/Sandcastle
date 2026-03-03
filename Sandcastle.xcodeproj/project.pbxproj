@@ -6,28 +6,17 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		FA68DE872F579FBC0038DA2A /* Gemini in Frameworks */ = {isa = PBXBuildFile; productRef = FA68DE862F579FBC0038DA2A /* Gemini */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		FA22D0A32F47537A0011992B /* Sandcastle.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sandcastle.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		FA22D2822F47EA120011992B /* Exceptions for "Sandcastle" folder in "Sandcastle" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Gemini/Caching/README.md,
-				Gemini/Live/README.md,
-				Gemini/README.md,
-			);
-			target = FA22D0A22F47537A0011992B /* Sandcastle */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		FA22D0A52F47537A0011992B /* Sandcastle */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				FA22D2822F47EA120011992B /* Exceptions for "Sandcastle" folder in "Sandcastle" target */,
-			);
 			path = Sandcastle;
 			sourceTree = "<group>";
 		};
@@ -38,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FA68DE872F579FBC0038DA2A /* Gemini in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -80,6 +70,7 @@
 			);
 			name = Sandcastle;
 			packageProductDependencies = (
+				FA68DE862F579FBC0038DA2A /* Gemini */,
 			);
 			productName = Sandcastle;
 			productReference = FA22D0A32F47537A0011992B /* Sandcastle.app */;
@@ -109,6 +100,9 @@
 			);
 			mainGroup = FA22D09A2F47537A0011992B;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FA68DE852F579FBC0038DA2A /* XCRemoteSwiftPackageReference "Gemini-Swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FA22D0A42F47537A0011992B /* Products */;
 			projectDirPath = "";
@@ -361,6 +355,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FA68DE852F579FBC0038DA2A /* XCRemoteSwiftPackageReference "Gemini-Swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/leptos-null/Gemini-Swift";
+			requirement = {
+				kind = revision;
+				revision = 76e0d9cd0157158b4f6e26f3be93e6959c939844;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		FA68DE862F579FBC0038DA2A /* Gemini */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FA68DE852F579FBC0038DA2A /* XCRemoteSwiftPackageReference "Gemini-Swift" */;
+			productName = Gemini;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = FA22D09B2F47537A0011992B /* Project object */;
 }

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Gemini
 
 struct PartView: View {
     let part: Part
