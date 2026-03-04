@@ -124,7 +124,7 @@ extension LiveSessionManager {
     @MainActor
     @Observable
     final class Audio {
-        private static let logger = Logger(subsystem: "LiveSessionManager", category: "Audio")
+        private nonisolated static let logger = Logger(subsystem: "LiveSessionManager", category: "Audio")
         
         private let audioEngine = AVAudioEngine()
         private let playerNode = AVAudioPlayerNode()
@@ -154,6 +154,11 @@ extension LiveSessionManager {
         
         @ObservationIgnored
         private var defaultNotificationCenterObservers: [NSObjectProtocol] = []
+        
+#if os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
+        @ObservationIgnored
+        private var pushedAudioSessionState: AVAudioSession.State?
+#endif
         
         // input/ user/ microphone audio
         let inputAudioAnalyzer = SpectrumAnalyzer()
@@ -329,9 +334,11 @@ extension LiveSessionManager {
         
         func resume() throws {
             wantsRunning = true
-#if os(iOS) || os(watchOS) || os(tvOS)
-            // TODO: push AVAudioSession state
+#if os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
             let audioSession: AVAudioSession = .sharedInstance()
+            
+            pushedAudioSessionState = audioSession.state
+            
             try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.bluetoothHighQualityRecording, .allowBluetoothHFP, .defaultToSpeaker])
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
 #endif
@@ -342,16 +349,40 @@ extension LiveSessionManager {
             wantsRunning = false
             audioEngine.stop()
             
-#if os(iOS) || os(watchOS) || os(tvOS)
-            // TODO: pop AVAudioSession state if needed
+#if os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
+            if let pushedAudioSessionState {
+                let audioSession: AVAudioSession = .sharedInstance()
+                do {
+                    try audioSession.setActive(false, options: .notifyOthersOnDeactivation)
+                    try audioSession.setState(pushedAudioSessionState)
+                } catch {
+                    Self.logger.error("audioSession.setState -> \(error)")
+                }
+                self.pushedAudioSessionState = nil
+            }
 #endif
         }
         
         deinit {
+            // self is isolated (to the MainActor), however `deinit` is not
+            //   (we could opt into it, by marking the `deinit` `isolated`, however that's a newer feature)
+            // so we aren't able to call any of the functions on `self` that are isolated.
+            // for this reason, much of the code in this `deinit` is copied from the `pause` function above
+            //   (since we can't call it)
+            
             audioEngine.stop()
             
-#if os(iOS) || os(watchOS) || os(tvOS)
-            // TODO: pop AVAudioSession state if needed
+#if os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
+            if let pushedAudioSessionState {
+                let audioSession: AVAudioSession = .sharedInstance()
+                do {
+                    try audioSession.setActive(false, options: .notifyOthersOnDeactivation)
+                    try audioSession.setState(pushedAudioSessionState)
+                } catch {
+                    Self.logger.error("audioSession.setState -> \(error)")
+                }
+                self.pushedAudioSessionState = nil
+            }
 #endif
             let notificationCenter: NotificationCenter = .default
             for observer in defaultNotificationCenterObservers {
