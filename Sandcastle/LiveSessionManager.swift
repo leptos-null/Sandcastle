@@ -616,12 +616,19 @@ extension LiveSessionManager {
         // but currently it's not an issue to hold strong references to these
         private var functionResolver: [String: FunctionProvider] = [:]
         
+        private let sysctlFunctionProvider: SysctlFunctionProvider = .init()
+        
         var functionProviders: [FunctionProvider] {
-            guard let manager else { return [] }
-            return [
-                manager.playground,
-                manager.usage,
+            var build: [FunctionProvider] = [
+                sysctlFunctionProvider,
             ]
+            if let manager {
+                build.append(contentsOf: [
+                    manager.playground,
+                    manager.usage,
+                ] as [FunctionProvider])
+            }
+            return build
         }
         
         func onSetup() {
