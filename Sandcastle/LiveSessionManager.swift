@@ -150,7 +150,9 @@ extension LiveSessionManager {
         
         @ObservationIgnored
         private var isSetup: Bool = false
+        
         private var wantsRunning: Bool = false
+        private(set) var isRunning: Bool = false
         
         @ObservationIgnored
         private var defaultNotificationCenterObservers: [NSObjectProtocol] = []
@@ -343,11 +345,14 @@ extension LiveSessionManager {
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
 #endif
             try audioEngine.start()
+            
+            isRunning = true
         }
         
         func pause() {
             wantsRunning = false
             audioEngine.stop()
+            isRunning = false
             
 #if os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
             if let pushedAudioSessionState {

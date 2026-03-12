@@ -42,6 +42,24 @@ struct ContentView: View {
             .scenePadding()
         }
         .defaultScrollAnchor(.bottom, for: .sizeChanges)
+        .overlay {
+            if liveSession.transcript.turns.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "microphone")
+                        .accessibilityHidden(true)
+                    Text("Double-tap anywhere to mute or unmute")
+                        .font(.callout)
+                }
+                .animation(.easeInOut(duration: 0.625)) { placeholder in
+                    placeholder
+                        .opacity(liveSession.audio.isRunning ? 1 : 0)
+                }
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .scenePadding()
+                .transition(.opacity)
+            }
+        }
         .animation(.default, value: liveSession.transcript.turns.map(\.id))
         .safeAreaInset(edge: .bottom) {
             if liveSession.playground.isShowing {
@@ -71,6 +89,7 @@ struct ContentView: View {
         }
         .animation(.default, value: liveSession.playground.isShowing)
         .animation(.default, value: liveSession.recentError != nil)
+        .contentShape(.rect)
         .onTapGesture(count: 2) {
             liveSession.audio.isMuted.toggle()
         }
