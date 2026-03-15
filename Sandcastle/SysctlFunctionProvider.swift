@@ -37,7 +37,7 @@ class SysctlFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
             // it would be nice if we could use the format information, however access to those seem to be restricted on iOS
             let rawBytes: [UInt8] = try SystemInformation.object(for: entryName)
             
-            let stringRepresentation: String? = String(validating: rawBytes, as: UTF8.self)
+            let stringRepresentation: String? = String(validatingNullTerminatedUTF8: rawBytes)
             
             // represent as a Double so we only have to do 1 conversion per type
             let signedIntegerRepresentation: Double?
@@ -99,5 +99,14 @@ private extension Array {
         return self.withUnsafeBytes { (bufferPointer: UnsafeRawBufferPointer) in
             bufferPointer.load(as: type)
         }
+    }
+}
+
+private extension String {
+    init?<S: Sequence>(validatingNullTerminatedUTF8 codeUnits: S) where S.Element == UTF8.CodeUnit {
+        let prefixUnits = codeUnits.prefix { codeUnit in
+            codeUnit != 0 // null terminator
+        }
+        self.init(validating: prefixUnits, as: UTF8.self)
     }
 }
