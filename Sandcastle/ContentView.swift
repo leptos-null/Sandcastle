@@ -110,6 +110,8 @@ extension SensoryFeedback {
         switch eventDescriptor {
         case .status(let statusEventDescriptor):
             self.init(statusEventDescriptor)
+        case .impact(let impactDescriptor):
+            self.init(impactDescriptor)
         }
     }
     
@@ -119,5 +121,14 @@ extension SensoryFeedback {
         case .warning: .warning
         case .error: .error
         }
+    }
+    
+    init(_ impactDescriptor: LiveSessionManager.Haptics.ImpactDescriptor) {
+        let weight: SensoryFeedback.Weight = switch impactDescriptor.weight {
+        case .light: .light
+        case .medium: .medium
+        case .heavy: .heavy
+        }
+        self = .impact(weight: weight, intensity: impactDescriptor.intensity)
     }
 }

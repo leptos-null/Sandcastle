@@ -753,14 +753,26 @@ extension LiveSessionManager {
     @MainActor
     @Observable
     final class Haptics: Tools.FunctionProvider {
-        enum EventDescriptor: Hashable {
+        enum EventDescriptor {
             case status(StatusEventDescriptor)
+            case impact(ImpactDescriptor)
         }
         
         enum StatusEventDescriptor: String, CaseIterable {
             case success
             case warning
             case error
+        }
+        
+        struct ImpactDescriptor {
+            enum Weight: String, CaseIterable {
+                case light
+                case medium
+                case heavy
+            }
+            
+            let weight: Weight
+            let intensity: Double
         }
         
         struct Request: Identifiable {
@@ -788,6 +800,16 @@ extension LiveSessionManager {
                     "status": .string(format: "enum", nullable: false, enum: StatusEventDescriptor.allCases.map(\.rawValue))
                 ]), parametersJsonSchema: nil, response: nil, responseJsonSchema: nil
             ),
+            .init(
+                name: "haptic_play_impact", description: "Play a haptic event based on a physical metaphor",
+                behavior: nil, parameters: .object(nullable: false, properties: [
+                    "weight": .string(
+                        format: "enum", description: "Defaults to \(ImpactDescriptor.Weight.medium.rawValue)", nullable: true,
+                        enum: ImpactDescriptor.Weight.allCases.map(\.rawValue)
+                    ),
+                    "intensity": .number(description: "Defaults to 1.0", nullable: true, minimum: 0.0, maximum: 1.0),
+                ]), parametersJsonSchema: nil, response: nil, responseJsonSchema: nil
+            ),
         ]
         
         private func handlePlayStatusCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
@@ -803,15 +825,43 @@ extension LiveSessionManager {
                 ]
             }
             
-            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                let request = Request(payload: .status(statusDescriptor), fulfillment: continuation)
-                
-                if currentRequest == nil {
-                    currentRequest = request
-                } else {
-                    requestQueue.append(request)
+            await playEventDescriptor(.status(statusDescriptor))
+            
+            return [
+                "status": .string("success")
+            ]
+        }
+        
+        private func handlePlayImpactCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
+            let weightDescriptor: Haptics.ImpactDescriptor.Weight
+            
+            if let weightValue = parameters["weight"] {
+                guard case .string(let rawWeight) = weightValue,
+                      let parsedWeight = Haptics.ImpactDescriptor.Weight(rawValue: rawWeight) else {
+                    return [
+                        "error": .string("unsupported 'weight' value")
+                    ]
                 }
+                weightDescriptor = parsedWeight
+            } else {
+                weightDescriptor = .medium
             }
+            
+            let intensity: Double
+            
+            if let intensityValue = parameters["intensity"] {
+                guard case .number(let intensityCandidate) = intensityValue,
+                      (0.0)...(1.0) ~= intensityCandidate else {
+                    return [
+                        "error": .string("unsupported 'intensity' value")
+                    ]
+                }
+                intensity = intensityCandidate
+            } else {
+                intensity = 1.0
+            }
+            
+            await playEventDescriptor(.impact(.init(weight: weightDescriptor, intensity: intensity)))
             
             return [
                 "status": .string("success")
@@ -822,12 +872,29 @@ extension LiveSessionManager {
             let response: Protobuf.Struct = switch name {
             case "haptic_play_status":
                 await handlePlayStatusCall(parameters: parameters)
+            case "haptic_play_impact":
+                await handlePlayImpactCall(parameters: parameters)
             default:
                 [
                     "error": .string("unknown function")
                 ]
             }
             return .init(response: response)
+        }
+        
+        func playEventDescriptor(_ eventDescriptor: EventDescriptor) async {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                let request = Request(payload: eventDescriptor, fulfillment: continuation)
+                addRequest(request)
+            }
+        }
+        
+        func addRequest(_ request: Request) {
+            if currentRequest == nil {
+                currentRequest = request
+            } else {
+                requestQueue.append(request)
+            }
         }
         
         func markRequestFulfilled(_ request: Request) {
