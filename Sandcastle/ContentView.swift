@@ -42,6 +42,12 @@ struct ContentView: View {
             .scenePadding()
         }
         .defaultScrollAnchor(.bottom, for: .sizeChanges)
+        .sensoryFeedback(trigger: liveSession.haptics.currentRequest?.id) {
+            guard let request = liveSession.haptics.currentRequest else { return nil }
+            let sensoryFeedback: SensoryFeedback = .init(request.payload)
+            liveSession.haptics.markRequestFulfilled(request)
+            return sensoryFeedback
+        }
         .overlay {
             if liveSession.transcript.turns.isEmpty {
                 VStack(spacing: 12) {
@@ -95,6 +101,23 @@ struct ContentView: View {
         }
         .onAppear {
             liveSession.startIfNeeded()
+        }
+    }
+}
+
+extension SensoryFeedback {
+    init(_ eventDescriptor: LiveSessionManager.Haptics.EventDescriptor) {
+        switch eventDescriptor {
+        case .status(let statusEventDescriptor):
+            self.init(statusEventDescriptor)
+        }
+    }
+    
+    init(_ statusEventDescriptor: LiveSessionManager.Haptics.StatusEventDescriptor) {
+        self = switch statusEventDescriptor {
+        case .success: .success
+        case .warning: .warning
+        case .error: .error
         }
     }
 }

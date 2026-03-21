@@ -33,6 +33,7 @@ final class LiveSessionManager {
     let transcript = Transcript()
     let usage = Usage()
     let tools = Tools()
+    let haptics = Haptics()
     let playground = Playground()
     
     init() {
@@ -626,6 +627,7 @@ extension LiveSessionManager {
                 build.append(contentsOf: [
                     manager.playground,
                     manager.usage,
+                    manager.haptics
                 ] as [FunctionProvider])
             }
             return build
@@ -744,6 +746,103 @@ extension LiveSessionManager.Tools {
         var functionDeclarations: [FunctionDeclaration] { get }
         
         func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> ThinnedFunctionResponse
+    }
+}
+
+extension LiveSessionManager {
+    @MainActor
+    @Observable
+    final class Haptics: Tools.FunctionProvider {
+        enum EventDescriptor: Hashable {
+            case status(StatusEventDescriptor)
+        }
+        
+        enum StatusEventDescriptor: String, CaseIterable {
+            case success
+            case warning
+            case error
+        }
+        
+        struct Request: Identifiable {
+            let id: UUID
+            
+            let payload: EventDescriptor
+            
+            fileprivate let fulfillment: CheckedContinuation<Void, Never>
+            
+            fileprivate init(id: UUID = .init(), payload: EventDescriptor, fulfillment: CheckedContinuation<Void, Never>) {
+                self.id = id
+                self.payload = payload
+                self.fulfillment = fulfillment
+            }
+        }
+        
+        private(set) var currentRequest: Request?
+        
+        private var requestQueue: [Request] = []
+        
+        let functionDeclarations: [FunctionDeclaration] = [
+            .init(
+                name: "haptic_play_status", description: "Play a haptic event based on a status",
+                behavior: nil, parameters: .object(nullable: false, properties: [
+                    "status": .string(format: "enum", nullable: false, enum: StatusEventDescriptor.allCases.map(\.rawValue))
+                ]), parametersJsonSchema: nil, response: nil, responseJsonSchema: nil
+            ),
+        ]
+        
+        private func handlePlayStatusCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
+            guard let statusValue = parameters["status"] else {
+                return [
+                    "error": .string("missing 'status' parameter")
+                ]
+            }
+            guard case .string(let rawStatus) = statusValue,
+                  let statusDescriptor = Haptics.StatusEventDescriptor(rawValue: rawStatus) else {
+                return [
+                    "error": .string("unsupported 'status' value")
+                ]
+            }
+            
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                let request = Request(payload: .status(statusDescriptor), fulfillment: continuation)
+                
+                if currentRequest == nil {
+                    currentRequest = request
+                } else {
+                    requestQueue.append(request)
+                }
+            }
+            
+            return [
+                "status": .string("success")
+            ]
+        }
+        
+        func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> Tools.ThinnedFunctionResponse {
+            let response: Protobuf.Struct = switch name {
+            case "haptic_play_status":
+                await handlePlayStatusCall(parameters: parameters)
+            default:
+                [
+                    "error": .string("unknown function")
+                ]
+            }
+            return .init(response: response)
+        }
+        
+        func markRequestFulfilled(_ request: Request) {
+            request.fulfillment.resume()
+            
+            requestQueue.removeAll { $0.id == request.id }
+            
+            if let currentRequest, currentRequest.id == request.id {
+                if requestQueue.isEmpty {
+                    self.currentRequest = nil
+                } else {
+                    self.currentRequest = requestQueue.removeFirst()
+                }
+            }
+        }
     }
 }
 
