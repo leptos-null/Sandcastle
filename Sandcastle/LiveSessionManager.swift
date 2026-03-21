@@ -618,10 +618,12 @@ extension LiveSessionManager {
         private var functionResolver: [String: FunctionProvider] = [:]
         
         private let sysctlFunctionProvider: SysctlFunctionProvider = .init()
+        private let timingFunctionProvider: TimingFunctionProvider = .init()
         
         var functionProviders: [FunctionProvider] {
             var build: [FunctionProvider] = [
                 sysctlFunctionProvider,
+                timingFunctionProvider,
             ]
             if let manager {
                 build.append(contentsOf: [
