@@ -18,6 +18,12 @@ class GitHubFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
                 "endpoint": .string(description: "A URL. This generally starts with `https://api.github.com`"),
             ]), parametersJsonSchema: nil, response: nil, responseJsonSchema: nil
         ),
+        .init(
+            name: "github_user_name", description: "Resolve the GitHub user name of the current user",
+            behavior: nil, parameters: nil, parametersJsonSchema: nil, response: .object(properties: [
+                "user_name": .string()
+            ]), responseJsonSchema: nil
+        ),
     ]
     
     init(urlSession: URLSession = .shared) {
@@ -77,6 +83,10 @@ class GitHubFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         let response: Protobuf.Struct = switch name {
         case "github_arbitrary_api":
             await handleArbitraryApiCall(parameters: parameters)
+        case "github_user_name":
+            [
+                "user_name": .string(Config.githubUserName)
+            ]
         default:
             [
                 "error": .string("unknown function")

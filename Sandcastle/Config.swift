@@ -9,6 +9,9 @@ protocol SecretsProvider {
     // reminder that shipping an API key in a client app is not secure.
     // this is for the convenience of a prototype app.
     static var geminiApiKey: String { get }
+    
+    // not necessarily secret, but configured by each user
+    static var githubUserName: String { get }
 }
 
 // if you're cloning this repo:
