@@ -619,11 +619,13 @@ extension LiveSessionManager {
         
         private let sysctlFunctionProvider: SysctlFunctionProvider = .init()
         private let timingFunctionProvider: TimingFunctionProvider = .init()
+        private let githubFunctionProvider: GitHubFunctionProvider = .init()
         
         var functionProviders: [FunctionProvider] {
             var build: [FunctionProvider] = [
                 sysctlFunctionProvider,
                 timingFunctionProvider,
+                githubFunctionProvider,
             ]
             if let manager {
                 build.append(contentsOf: [
