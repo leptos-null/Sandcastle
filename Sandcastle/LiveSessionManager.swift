@@ -52,11 +52,7 @@ final class LiveSessionManager {
                 let stream: AsyncThrowingStream<BidiGenerateContentServerMessage, Swift.Error>
                 if let self { // not using `guard let` so that we don't continue holding a reference to `self` below
                     // TODO: using API key for development only
-                    guard let cApiKey = getenv("GOOGLE_AI_API_KEY") else {
-                        fatalError("Expected GOOGLE_AI_API_KEY environment variable")
-                    }
-                    let apiKey = String(cString: cApiKey)
-                    let request = try BidiGenerateContentSession.requestFor(apiKey: apiKey, apiVersion: .v1alpha)
+                    let request = try BidiGenerateContentSession.requestFor(apiKey: Config.geminiApiKey, apiVersion: .v1alpha)
                     
                     stream = try await self.bidiSession.connect(request: request)
                     self.state = .connected
