@@ -12,6 +12,8 @@ protocol SecretsProvider {
     
     // not necessarily secret, but configured by each user
     static var githubUserName: String { get }
+    
+    static var discordWebhook: String { get }
 }
 
 // if you're cloning this repo:
