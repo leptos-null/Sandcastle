@@ -617,6 +617,7 @@ extension LiveSessionManager {
         private let timingFunctionProvider: TimingFunctionProvider = .init()
         private let githubFunctionProvider: GitHubFunctionProvider = .init()
         private let discordFunctionProvider: DiscordFunctionProvider = .init()
+        private let wikipediaFunctionProvider: WikipediaFunctionProvider = .init()
         
         var functionProviders: [FunctionProvider] {
             var build: [FunctionProvider] = [
@@ -624,6 +625,7 @@ extension LiveSessionManager {
                 timingFunctionProvider,
                 githubFunctionProvider,
                 discordFunctionProvider,
+                wikipediaFunctionProvider
             ]
             if let manager {
                 build.append(contentsOf: [
