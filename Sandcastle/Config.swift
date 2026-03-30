@@ -14,6 +14,9 @@ protocol SecretsProvider {
     static var githubUserName: String { get }
     
     static var discordWebhook: String { get }
+    
+    // Key is the user-facing name. Value is the `masjid_id` for the Masjidal API
+    static var masjidEntries: [String: String] { get }
 }
 
 // if you're cloning this repo:
