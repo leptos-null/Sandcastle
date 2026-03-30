@@ -20,7 +20,7 @@ class WikipediaFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
             name: "wikipedia_search_page", description: "Lists pages matching the given search terms",
             behavior: nil, parameters: .object(properties: [
                 "terms": .string(),
-                "limit": .number(description: "Maximum number of search results to return. Defaults to 15", nullable: true, minimum: 1, maximum: 100)
+                "limit": .integer(description: "Maximum number of search results to return. Defaults to 15", nullable: true, minimum: 1, maximum: 100)
             ]), parametersJsonSchema: nil, response: .anyOf(schemas: [
                 .object(properties: [
                     "pages": .array(items: .object(properties: [
