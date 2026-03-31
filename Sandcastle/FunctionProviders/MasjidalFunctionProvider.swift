@@ -18,10 +18,7 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
             name: "masjidal_time_range",
             description: "Get prayer times for a given masjid. Unless otherwise specified all dates and times are local to the masjid.",
             behavior: nil, parameters: .object(properties: [
-                "masjid_name": .string(
-                    format: "enum",
-                    enum: Array(Config.masjidEntries.keys)
-                ),
+                "masjid_id": .string(description: "An opaque identifier"),
                 "from_date": .string(format: "date", description: "Start of the date range, inclusive. Defaults to today", nullable: true),
                 "to_date": .string(format: "date", description: "End of the date range, inclusive. Defaults to today", nullable: true),
             ]), parametersJsonSchema: nil, response: .anyOf(schemas: [
@@ -79,7 +76,7 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
                     ]),
                     "items": .array(
                         items: .object(properties: [
-                            "id": .string(),
+                            "id": .string(description: "Suitable for passing to masjid_id"),
                             "name": .string(),
                             "website_url": .string(),
                             "distance": .string(description: "Distance from the query coordinate in miles"),
@@ -100,6 +97,23 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
                 ]),
             ]), responseJsonSchema: nil
         ),
+        .init(
+            name: "masjidal_masjid_name_to_id",
+            description: "Resolve a masjid name to its ID",
+            behavior: nil, parameters: .object(properties: [
+                "name": .string(
+                    format: "enum",
+                    enum: Array(Config.masjidEntries.keys)
+                ),
+            ]), parametersJsonSchema: nil, response: .anyOf(schemas: [
+                .object(properties: [
+                    "id": .string(description: "Suitable for passing to masjid_id"),
+                ]),
+                .object(properties: [
+                    "error": .string()
+                ]),
+            ]), responseJsonSchema: nil
+        ),
     ]
     
     init(urlSession: URLSession = .shared) {
@@ -107,15 +121,14 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
     }
     
     private func handleTimeRangeCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
-        guard let masjidNameValue = parameters["masjid_name"] else {
+        guard let masjidIdValue = parameters["masjid_id"] else {
             return [
-                "error": .string("missing 'masjid_name' parameter")
+                "error": .string("missing 'masjid_id' parameter")
             ]
         }
-        guard case .string(let masjidName) = masjidNameValue,
-              let masjidID = Config.masjidEntries[masjidName] else {
+        guard case .string(let masjidId) = masjidIdValue else {
             return [
-                "error": .string("unsupported 'masjid_name' value")
+                "error": .string("unsupported 'masjid_id' value")
             ]
         }
         
@@ -128,7 +141,7 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
             }
             
             var queryItems: [URLQueryItem] = [
-                URLQueryItem(name: "masjid_id", value: masjidID),
+                URLQueryItem(name: "masjid_id", value: masjidId),
             ]
             if case .string(let fromDate) = parameters["from_date"] {
                 queryItems.append(URLQueryItem(name: "from_date", value: fromDate))
@@ -218,12 +231,31 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         }
     }
     
+    private func handleMasjidNameToId(parameters: Protobuf.Struct) async -> Protobuf.Struct {
+        guard let nameValue = parameters["name"] else {
+            return [
+                "error": .string("missing 'name' parameter")
+            ]
+        }
+        guard case .string(let name) = nameValue,
+              let masjidID = Config.masjidEntries[name] else {
+            return [
+                "error": .string("unsupported 'name' value")
+            ]
+        }
+        return [
+            "id": .string(masjidID)
+        ]
+    }
+    
     func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
         let response: Protobuf.Struct = switch name {
         case "masjidal_time_range":
             await handleTimeRangeCall(parameters: parameters)
         case "masjidal_masjids_proximity":
             await handleMasjidsProximityCall(parameters: parameters)
+        case "masjidal_masjid_name_to_id":
+            await handleMasjidNameToId(parameters: parameters)
         default:
             [
                 "error": .string("unknown function")
