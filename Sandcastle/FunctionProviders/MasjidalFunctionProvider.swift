@@ -60,6 +60,46 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
                 ]),
             ]), responseJsonSchema: nil
         ),
+        .init(
+            name: "masjidal_masjids_proximity",
+            description: "Find masjids near a given coordinate",
+            behavior: nil, parameters: .object(properties: [
+                "latitude": .number(minimum: -90, maximum: +90),
+                "longitude": .number(minimum: -180, maximum: +180),
+                // one might think distance should be a number (i.e. floating point), however in testing, the API only accepts integers
+                "distance": .integer(description: "The radius in miles to search. Defaults to 5", nullable: true, minimum: 1),
+                "page": .integer(description: "Page number of the results. Defaults to 1", nullable: true),
+            ]), parametersJsonSchema: nil, response: .anyOf(schemas: [
+                .object(properties: [
+                    "_meta": .object(properties: [
+                        "currentPage": .integer(),
+                        "pageCount": .integer(),
+                        "perPage": .integer(),
+                        "totalCount": .integer(),
+                    ]),
+                    "items": .array(
+                        items: .object(properties: [
+                            "id": .string(),
+                            "name": .string(),
+                            "website_url": .string(),
+                            "distance": .string(description: "Distance from the query coordinate in miles"),
+                            
+                            "address": .string(),
+                            "city": .string(),
+                            "zipcode": .string(),
+                            "state": .string(),
+                            "country": .string(),
+                            
+                            "latitude": .string(),
+                            "longitude": .string(),
+                        ])
+                    ),
+                ]),
+                .object(properties: [
+                    "error": .string()
+                ]),
+            ]), responseJsonSchema: nil
+        ),
     ]
     
     init(urlSession: URLSession = .shared) {
@@ -115,10 +155,75 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         }
     }
     
+    private func handleMasjidsProximityCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
+        guard let latitudeValue = parameters["latitude"] else {
+            return [
+                "error": .string("missing 'latitude' parameter")
+            ]
+        }
+        guard case .number(let latitude) = latitudeValue else {
+            return [
+                "error": .string("unsupported 'latitude' value")
+            ]
+        }
+        guard let longitudeValue = parameters["longitude"] else {
+            return [
+                "error": .string("missing 'longitude' parameter")
+            ]
+        }
+        guard case .number(let longitude) = longitudeValue else {
+            return [
+                "error": .string("unsupported 'longitude' value")
+            ]
+        }
+        
+        do {
+            guard var urlComponents = URLComponents(string: urlBase + "/v3/masjids/proximity") else {
+                throw URLError(.badURL)
+            }
+            
+            let posixLocale: Locale = .init(identifier: "en_US_POSIX")
+            let coordinateComponentStyle: FloatingPointFormatStyle<Double> = .init(locale: posixLocale)
+                .precision(.fractionLength(1...6))
+            
+            let fixedPointStyle: FloatingPointFormatStyle<Double> = .init(locale: posixLocale)
+                .precision(.fractionLength(0))
+            
+            var queryItems: [URLQueryItem] = [
+                URLQueryItem(name: "lat", value: latitude.formatted(coordinateComponentStyle)),
+                URLQueryItem(name: "long", value: longitude.formatted(coordinateComponentStyle)),
+            ]
+            if case .number(let distance) = parameters["distance"] {
+                queryItems.append(URLQueryItem(name: "distance", value: distance.formatted(fixedPointStyle)))
+            }
+            if case .number(let page) = parameters["page"] {
+                queryItems.append(URLQueryItem(name: "page", value: page.formatted(fixedPointStyle)))
+            }
+            urlComponents.queryItems = queryItems
+            
+            guard let url = urlComponents.url else {
+                throw URLError(.badURL)
+            }
+            
+            let (responsePayload, _) = try await urlSession.data(from: url)
+            
+            let decoder = JSONDecoder()
+            let decodedResponse = try decoder.decode(Protobuf.Struct.self, from: responsePayload)
+            
+            return decodedResponse
+        } catch {
+            return [
+                "error": .string(error.localizedDescription)
+            ]
+        }
+    }
+    
     func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
         let response: Protobuf.Struct = switch name {
         case "masjidal_time_range":
             await handleTimeRangeCall(parameters: parameters)
+        case "masjidal_masjids_proximity":
+            await handleMasjidsProximityCall(parameters: parameters)
         default:
             [
                 "error": .string("unknown function")
