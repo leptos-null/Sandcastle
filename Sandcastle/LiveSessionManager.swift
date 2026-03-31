@@ -619,6 +619,7 @@ extension LiveSessionManager {
         private let discordFunctionProvider: DiscordFunctionProvider = .init()
         private let wikipediaFunctionProvider: WikipediaFunctionProvider = .init()
         private let masjidalFunctionProvider: MasjidalFunctionProvider = .init()
+        private let dateFunctionProvider: DateFunctionProvider = .init()
         
         var functionProviders: [FunctionProvider] {
             var build: [FunctionProvider] = [
@@ -628,6 +629,7 @@ extension LiveSessionManager {
                 discordFunctionProvider,
                 wikipediaFunctionProvider,
                 masjidalFunctionProvider,
+                dateFunctionProvider,
             ]
             if let manager {
                 build.append(contentsOf: [
