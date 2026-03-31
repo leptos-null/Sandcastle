@@ -81,6 +81,7 @@ struct ContentView: View {
                 SpectrumAnalyzerView(spectrumAnalyzer: liveSession.audio.outputAudioAnalyzer, shading: .color(.indigo))
             }
             .frame(height: 120)
+            .ignoresSafeArea(.container, edges: .horizontal)
         }
         .ignoresSafeArea(.container, edges: .bottom)
         .safeAreaInset(edge: .top) {
