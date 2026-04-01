@@ -394,6 +394,9 @@ extension LiveSessionManager {
         
         func pause() {
             wantsRunning = false
+            // the player seems to get in a bad state if we later try resuming the audio engine
+            // without having stopped the player node first
+            playerNode.stop()
             audioEngine.stop()
             isRunning = false
             
