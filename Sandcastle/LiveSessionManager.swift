@@ -19,6 +19,8 @@ final class LiveSessionManager {
         case connected
         case setup
         
+        case pausing
+        
         case terminated
     }
     
@@ -37,6 +39,20 @@ final class LiveSessionManager {
     let haptics = Haptics()
     let playground = Playground()
     
+    var isResumable: Bool {
+        switch state {
+        case .idle, .terminated: true
+        default: false
+        }
+    }
+    
+    var isPausable: Bool {
+        switch state {
+        case .connected, .setup: true
+        default: false
+        }
+    }
+    
     init() {
         audio.manager = self
         tools.manager = self
@@ -49,12 +65,7 @@ final class LiveSessionManager {
     }
     
     func resume() {
-        switch state {
-        case .idle, .terminated:
-            break // allowed - continue below
-        default:
-            return
-        }
+        guard isResumable else { return }
         
         recentError = nil
         state = .connecting
@@ -93,10 +104,26 @@ final class LiveSessionManager {
                     self.tools.onServerMessage(message)
                 }
             } catch {
-                Self.logger.error("Connection error: \(error)")
-                self?.recentError = error
+                if let self, case .pausing = self.state,
+                   let posixError = error as? POSIXError, posixError.code == .ENOTCONN {
+                    // expected
+                } else {
+                    Self.logger.error("Connection error: \(error)")
+                    self?.recentError = error
+                }
             }
             self?.state = .terminated
+            self?.audio.pause()
+        }
+    }
+    
+    func pause() {
+        guard isPausable else { return }
+        
+        state = .pausing
+        
+        Task<Void, Never> {
+            await self.bidiSession.disconnect()
         }
     }
     
@@ -382,6 +409,8 @@ extension LiveSessionManager {
                 self.pushedAudioSessionState = nil
             }
 #endif
+            inputAudioAnalyzer.reset()
+            outputAudioAnalyzer.reset()
         }
         
         deinit {

@@ -128,4 +128,9 @@ final class SpectrumAnalyzer {
             }
         }
     }
+    
+    func reset() {
+        sampleBuffer.removeAll()
+        magnitudes = Array(repeating: -160, count: Self.binCount)
+    }
 }
