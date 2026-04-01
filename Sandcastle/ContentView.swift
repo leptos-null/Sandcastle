@@ -84,6 +84,18 @@ struct ContentView: View {
             .ignoresSafeArea(.container, edges: .horizontal)
         }
         .ignoresSafeArea(.container, edges: .bottom)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(liveSession.isResumable ? "Resume" : "Pause", systemImage: liveSession.isResumable ? "play" : "pause") {
+                    if liveSession.isResumable {
+                        liveSession.resume()
+                    } else if liveSession.isPausable {
+                        liveSession.pause()
+                    }
+                }
+                .disabled(!(liveSession.isPausable || liveSession.isResumable))
+            }
+        }
         .safeAreaInset(edge: .top) {
             if let error = liveSession.recentError {
                 Text(error.localizedDescription)
@@ -95,6 +107,8 @@ struct ContentView: View {
             }
         }
         .animation(.default, value: liveSession.playground.isShowing)
+        .animation(.default, value: liveSession.isPausable)
+        .animation(.default, value: liveSession.isResumable)
         .animation(.default, value: liveSession.recentError != nil)
         .contentShape(.rect)
         .onTapGesture(count: 2) {
