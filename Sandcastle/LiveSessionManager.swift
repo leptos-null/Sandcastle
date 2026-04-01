@@ -263,7 +263,9 @@ extension LiveSessionManager {
                         return
                     }
                     
-                    guard let self, let manager = self.manager else { return }
+                    // if we don't want to be running, skip
+                    guard let self, let manager = self.manager,
+                          self.wantsRunning else { return }
                     
                     guard let audioChannelData = targetBuffer.int16ChannelData else {
                         Self.logger.error("Missing int16ChannelData on listen buffer")
@@ -297,6 +299,10 @@ extension LiveSessionManager {
             let playerBufferConverter = AudioBufferConverter()
             mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { [weak self] (buffer: AVAudioPCMBuffer, when: AVAudioTime) in
                 Task<Void, Never> {
+                    guard let self else { return }
+                    // if we don't want to be running, skip
+                    guard self.wantsRunning else { return }
+                    
                     let targetBuffer: AVAudioPCMBuffer
                     do {
                         targetBuffer = try await playerBufferConverter.convert(buffer: buffer, to: targetListenFormat)
@@ -304,7 +310,9 @@ extension LiveSessionManager {
                         Self.logger.error("convert(buffer:to:) -> \(error)")
                         return
                     }
-                    guard let self else { return }
+                    // check again, since there's an `await` between these checks
+                    guard self.wantsRunning else { return }
+                    
                     self.outputAudioAnalyzer.append(buffer: targetBuffer)
                 }
             }
