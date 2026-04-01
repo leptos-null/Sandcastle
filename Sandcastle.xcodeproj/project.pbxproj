@@ -366,7 +366,7 @@
 			repositoryURL = "https://github.com/leptos-null/Gemini-Swift";
 			requirement = {
 				kind = revision;
-				revision = 8fc874a30c6c3565320a7894cc3f40d85168ac19;
+				revision = 5c51f9d67609c69a9d7810c6c89d989a92c7a518;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

@@ -27,6 +27,7 @@ final class LiveSessionManager {
     let bidiSession: BidiGenerateContentSession = .init()
     
     private var state: State = .idle
+    private var resumptionHandle: String?
     private(set) var recentError: Swift.Error?
     
     let audio = Audio()
@@ -43,6 +44,17 @@ final class LiveSessionManager {
     
     func startIfNeeded() {
         guard case .idle = state else { return }
+        
+        resume()
+    }
+    
+    func resume() {
+        switch state {
+        case .idle, .terminated:
+            break // allowed - continue below
+        default:
+            return
+        }
         
         recentError = nil
         state = .connecting
@@ -66,9 +78,15 @@ final class LiveSessionManager {
                 
                 for try await message in stream {
                     guard let self else { break }
+                    
                     if case .setupComplete = message.messageType {
                         self.state = .setup
                     }
+                    if case .sessionResumptionUpdate(let update) = message.messageType,
+                       update.resumable, let newHandle = update.newHandle {
+                        self.resumptionHandle = newHandle
+                    }
+                    
                     self.audio.onServerMessage(message)
                     self.transcript.onServerMessage(message)
                     self.usage.onServerMessage(message)
@@ -101,6 +119,7 @@ final class LiveSessionManager {
                 speechConfig: .init(voiceConfig: .init(value: .prebuiltVoiceConfig(.umbriel)))
             ),
             tools: tools,
+            sessionResumption: .init(handle: resumptionHandle),
             inputAudioTranscription: .init(),
             outputAudioTranscription: .init(),
             proactivity: .init(proactiveAudio: true)
