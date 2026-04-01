@@ -106,10 +106,29 @@ final actor BidiGenerateContentSession {
         @unknown default:
             throw WebSocketError.unknownMessageType
         }
-        Self.logger.debug("recv: \(self.processMessageForLogging(encodedMessage))")
         
-        let decodedMessage = try decoder.decode(BidiGenerateContentServerMessage.self, from: encodedMessage)
-        return decodedMessage
+        do {
+            let decodedMessage = try decoder.decode(BidiGenerateContentServerMessage.self, from: encodedMessage)
+            
+            let shouldLog: Bool = if case .serverContent(let serverContent) = decodedMessage.messageType,
+                                     serverContent.generationComplete == nil, serverContent.turnComplete == nil,
+                                     serverContent.interrupted == nil,
+                                     serverContent.groundingMetadata == nil,
+                                     serverContent.urlContextMetadata == nil {
+                false // these are pretty noisy. the remaining fields are either audio or transcripts
+            } else {
+                true
+            }
+            if shouldLog {
+                Self.logger.debug("recv: \(self.processMessageForLogging(encodedMessage))")
+            }
+            
+            return decodedMessage
+        } catch {
+            Self.logger.debug("recv: \(self.processMessageForLogging(encodedMessage))")
+            
+            throw error
+        }
     }
     
     private static func processValueForLogging(_ json: Protobuf.Value) -> Protobuf.Value {
