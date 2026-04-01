@@ -454,11 +454,12 @@ extension LiveSessionManager {
         private var currentAccumulator: TranscriptionAccumulator?
         
         private var completedTurns: [Turn] = []
+        private var isDrafting: Bool = true
         
         var turns: [Turn] {
             var result: [Turn] = completedTurns
             if let currentAccumulator {
-                result.append(.init(transcriptionAccumulator: currentAccumulator))
+                result.append(.init(transcriptionAccumulator: currentAccumulator, isDraft: true))
             }
             return result
         }
@@ -469,7 +470,7 @@ extension LiveSessionManager {
                     currentAccumulator.text.append(text)
                     self.currentAccumulator = currentAccumulator
                 } else {
-                    completedTurns.append(.init(transcriptionAccumulator: currentAccumulator))
+                    completedTurns.append(.init(transcriptionAccumulator: currentAccumulator, isDraft: self.isDrafting))
                     self.currentAccumulator = .init(role: role, text: text)
                 }
             } else {
@@ -479,6 +480,11 @@ extension LiveSessionManager {
         
         func onServerMessage(_ message: BidiGenerateContentServerMessage) {
             switch message.messageType {
+            case .setupComplete:
+                // new session started - anything that was a draft is lost
+                completedTurns.removeAll(where: \.isDraft)
+                currentAccumulator = nil
+                isDrafting = true
             case .serverContent(let serverContent):
                 if let inputTranscription = serverContent.inputTranscription {
                     onPartialTranscript(role: .user, text: inputTranscription.text)
@@ -490,13 +496,13 @@ extension LiveSessionManager {
                 
                 if serverContent.generationComplete == true,
                    let currentAccumulator, currentAccumulator.role == .model {
-                    completedTurns.append(.init(transcriptionAccumulator: currentAccumulator))
+                    completedTurns.append(.init(transcriptionAccumulator: currentAccumulator, isDraft: self.isDrafting))
                     self.currentAccumulator = nil
                 }
                 
                 if let modelTurn = serverContent.modelTurn {
                     if let currentAccumulator, currentAccumulator.role != .model {
-                        completedTurns.append(.init(transcriptionAccumulator: currentAccumulator))
+                        completedTurns.append(.init(transcriptionAccumulator: currentAccumulator, isDraft: self.isDrafting))
                         self.currentAccumulator = nil
                     }
                     
@@ -507,7 +513,7 @@ extension LiveSessionManager {
                         return true
                     }
                     if !filteredParts.isEmpty {
-                        completedTurns.append(.init(role: .model, content: .parts(filteredParts)))
+                        completedTurns.append(.init(role: .model, content: .parts(filteredParts), isDraft: self.isDrafting))
                     }
                 }
             case .toolCall(let toolCall):
@@ -515,12 +521,26 @@ extension LiveSessionManager {
                     return // nothing to do
                 }
                 let turns = functionCalls.map { functionCall in
-                    Turn(role: .model, content: .functionCall(functionCall))
+                    Turn(role: .model, content: .functionCall(functionCall), isDraft: self.isDrafting)
                 }
                 completedTurns.append(contentsOf: turns)
+            case .sessionResumptionUpdate(let sessionResumptionUpdate):
+                self.isDrafting = !sessionResumptionUpdate.resumable
+                
+                if sessionResumptionUpdate.resumable {
+                    finalizeAllTurns()
+                }
             default:
                 break // currently nothing to do here
             }
+        }
+        
+        private func finalizeAllTurns() {
+            var copy = self.completedTurns
+            for index in copy.indices {
+                copy[index].isDraft = false
+            }
+            self.completedTurns = copy
         }
     }
 }
@@ -543,10 +563,13 @@ extension LiveSessionManager.Transcript {
         let role: Role
         let content: Content
         
-        init(id: UUID = .init(), role: Role, content: Content) {
+        var isDraft: Bool
+        
+        init(id: UUID = .init(), role: Role, content: Content, isDraft: Bool) {
             self.id = id
             self.role = role
             self.content = content
+            self.isDraft = isDraft
         }
     }
 }
@@ -561,8 +584,8 @@ extension LiveSessionManager.Transcript {
 }
 
 extension LiveSessionManager.Transcript.Turn {
-    init(transcriptionAccumulator transcript: LiveSessionManager.Transcript.TranscriptionAccumulator) {
-        self.init(id: transcript.id, role: transcript.role, content: .transcript(transcript.text))
+    init(transcriptionAccumulator transcript: LiveSessionManager.Transcript.TranscriptionAccumulator, isDraft: Bool) {
+        self.init(id: transcript.id, role: transcript.role, content: .transcript(transcript.text), isDraft: isDraft)
     }
 }
 
