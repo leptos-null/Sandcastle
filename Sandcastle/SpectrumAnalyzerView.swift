@@ -12,6 +12,8 @@ struct SpectrumAnalyzerView: View {
     let spectrumAnalyzer: SpectrumAnalyzer
     let shading: GraphicsContext.Shading
     
+    let edge: HorizontalEdge
+    
     var body: some View {
         Canvas { context, size in
             let magnitudes = spectrumAnalyzer.magnitudes
@@ -30,11 +32,15 @@ struct SpectrumAnalyzerView: View {
             
             guard resampled.count > 1 else { return }
             
-            let step: CGFloat = size.width / CGFloat(resampled.count - 1)
-            let points: [CGPoint] = zip(stride(from: 0, through: size.width, by: step), resampled).map { x, magnitude in
-                let barHeight: CGFloat = max(0, min(CGFloat(magnitude + 160), size.height))
-                // y = 0 is the top; flip so a higher strength is closer to the top
-                return CGPoint(x: x, y: size.height - barHeight)
+            let step: CGFloat = size.height / CGFloat(resampled.count - 1)
+            let points: [CGPoint] = zip(stride(from: 0, through: size.height, by: step), resampled).map { y, magnitude in
+                let barHeight: CGFloat = max(0, min(CGFloat(magnitude + 160), size.width))
+                
+                let x: CGFloat = switch self.edge {
+                case .leading: barHeight
+                case .trailing: size.width - barHeight
+                }
+                return CGPoint(x: x, y: y)
             }
             let path = Path { path in
                 
@@ -54,13 +60,22 @@ struct SpectrumAnalyzerView: View {
                         control: leadingPoint
                     )
                 }
+                
                 path.addLine(to: points[points.count - 1])
-                path.addLine(to: CGPoint(x: size.width, y: size.height))
-                path.addLine(to: CGPoint(x: 0, y: size.height))
+                
+                switch self.edge {
+                case .leading:
+                    path.addLine(to: CGPoint(x: 0, y: size.height))
+                    path.addLine(to: CGPoint(x: 0, y: 0))
+                case .trailing:
+                    path.addLine(to: CGPoint(x: size.width, y: size.height))
+                    path.addLine(to: CGPoint(x: size.width, y: 0))
+                }
+                
                 path.closeSubpath()
             }
             context.fill(path, with: shading)
         }
-        .frame(height: 120)
+        .frame(width: 120)
     }
 }

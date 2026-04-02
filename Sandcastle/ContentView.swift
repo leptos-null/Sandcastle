@@ -10,6 +10,17 @@ import SwiftUI
 struct ContentView: View {
     @State private var liveSession = LiveSessionManager()
     
+    @Environment(\.colorScheme) private var colorScheme
+    
+    private var backgroundDarkeningLayer: some ShapeStyle {
+        let opacity: Double = switch colorScheme {
+        case .light: 0.05
+        case .dark: 0.35
+        @unknown default: 0.2
+        }
+        return .black.opacity(opacity)
+    }
+    
     var body: some View {
         ScrollView(.vertical) {
             VStack {
@@ -48,6 +59,16 @@ struct ContentView: View {
             liveSession.haptics.markRequestFulfilled(request)
             return sensoryFeedback
         }
+        .background {
+            HStack {
+                SpectrumAnalyzerView(spectrumAnalyzer: liveSession.audio.outputAudioAnalyzer, shading: .color(.indigo), edge: .leading)
+                Spacer()
+                SpectrumAnalyzerView(spectrumAnalyzer: liveSession.audio.inputAudioAnalyzer, shading: .color(.orange), edge: .trailing)
+            }
+            .overlay(.thinMaterial)
+            .overlay(backgroundDarkeningLayer)
+            .ignoresSafeArea()
+        }
         .overlay {
             if liveSession.transcript.turns.isEmpty {
                 VStack(spacing: 12) {
@@ -75,15 +96,6 @@ struct ContentView: View {
                     .transition(.scale(0.125, anchor: .bottom).combined(with: .opacity))
             }
         }
-        .safeAreaInset(edge: .bottom) {
-            ZStack(alignment: .bottom) {
-                SpectrumAnalyzerView(spectrumAnalyzer: liveSession.audio.inputAudioAnalyzer, shading: .color(.orange))
-                SpectrumAnalyzerView(spectrumAnalyzer: liveSession.audio.outputAudioAnalyzer, shading: .color(.indigo))
-            }
-            .frame(height: 120)
-            .ignoresSafeArea(.container, edges: .horizontal)
-        }
-        .ignoresSafeArea(.container, edges: .bottom)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(liveSession.isResumable ? "Resume" : "Pause", systemImage: liveSession.isResumable ? "play" : "pause") {
