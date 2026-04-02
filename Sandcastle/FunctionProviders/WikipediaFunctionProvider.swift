@@ -11,10 +11,6 @@ import Gemini
 class WikipediaFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
     private let urlSession: URLSession
     
-    private let urlBase: String = "https://en.wikipedia.org/w/rest.php"
-    
-    // https://en.wikipedia.org/w/index.php?api=mw-extra&title=Special%3ARestSandbox
-    
     let functionDeclarations: [FunctionDeclaration] = [
         .init(
             name: "wikipedia_search_page", description: "Lists pages matching the given search terms",
@@ -37,10 +33,25 @@ class WikipediaFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
             ]), responseJsonSchema: nil
         ),
         .init(
-            name: "wikipedia_page_raw", description: "Returns information about a page, including the page source, usually in wikitext.",
+            name: "wikipedia_page_summary", description: "Returns a summary of a page",
             behavior: nil, parameters: .object(properties: [
-                "title": .string(description: "Page title in reading-friendly format"),
-            ]), parametersJsonSchema: nil, response: nil, responseJsonSchema: nil
+                "title": .string(description: "Page title in URL-friendly format"),
+            ]), parametersJsonSchema: nil, response: .anyOf(schemas: [
+                .object(properties: [
+                    "page_id": .number(nullable: true),
+                    "extract": .string(description: "First several sentences of the article in plain text"),
+                    "language": .string(),
+                    "last_edit_time": .string(description: "The time when the page was last edited, in the ISO 8601 format", nullable: true),
+                    "description": .string(description: "Wikidata description for the page", nullable: true),
+                    "coordinates": .object(nullable: true, properties: [
+                        "latitude": .number(),
+                        "longitude": .number(),
+                    ]),
+                ]),
+                .object(properties: [
+                    "error": .string()
+                ])
+            ]), responseJsonSchema: nil
         )
     ]
     
@@ -48,6 +59,7 @@ class WikipediaFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         self.urlSession = urlSession
     }
     
+    // https://en.wikipedia.org/w/index.php?api=mw-extra&title=Special%3ARestSandbox#/default/get_v1_search_page
     private func handleSearchPageCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
         guard let termsValue = parameters["terms"] else {
             return [
@@ -74,7 +86,7 @@ class WikipediaFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
             limit = 15
         }
         do {
-            guard var urlComponents = URLComponents(string: urlBase + "/v1/search/page") else {
+            guard var urlComponents = URLComponents(string: "https://en.wikipedia.org/w/rest.php/v1/search/page") else {
                 throw URLError(.badURL)
             }
             urlComponents.queryItems = [
@@ -91,7 +103,7 @@ class WikipediaFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
             let (responsePayload, _) = try await self.urlSession.data(for: urlRequest)
             
             let decoder = JSONDecoder()
-            let decodedResponse = try decoder.decode(WikipediaSearchPageResult.self, from: responsePayload)
+            let decodedResponse = try decoder.decode(WikipediaSearchPageResponse.self, from: responsePayload)
             
             let pageValues: [Protobuf.Value] = decodedResponse.pages.map { page in
                 var build: [String: Protobuf.Value] = [
@@ -122,7 +134,8 @@ class WikipediaFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         }
     }
     
-    private func handlePageRawCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
+    // https://en.wikipedia.org/w/index.php?api=wmf-restbase&title=Special%3ARestSandbox#/Page%20content/get_page_summary__title_
+    private func handlePageSummaryCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
         guard let titleValue = parameters["title"] else {
             return [
                 "error": .string("missing 'title' parameter")
@@ -135,20 +148,43 @@ class WikipediaFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         }
         
         do {
-            // note: depends on iOS 17+ parsing behavior
-            guard let url = URL(string: urlBase + "/v1/page/" + title) else {
+            guard let baseURL = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary") else {
                 throw URLError(.badURL)
             }
             
+            let url = baseURL.appending(component: title)
+            
             var urlRequest = URLRequest(url: url)
-            urlRequest.setValue("application/json", forHTTPHeaderField: "accept")
+            urlRequest.setValue("application/json; charset=utf-8; profile=\"https://www.mediawiki.org/wiki/Specs/Summary/1.4.2\"", forHTTPHeaderField: "accept")
+            // per the documentation
+            urlRequest.addValue("https://github.com/leptos-null/Sandcastle", forHTTPHeaderField: "Api-User-Agent")
             
             let (responsePayload, _) = try await self.urlSession.data(for: urlRequest)
             
             let decoder = JSONDecoder()
-            let decodedResponse = try decoder.decode(Protobuf.Struct.self, from: responsePayload)
+            let decodedResponse = try decoder.decode(WikipediaPageSummaryResponse.self, from: responsePayload)
             
-            return decodedResponse
+            var build: Protobuf.Struct = [
+                "extract": .string(decodedResponse.extract),
+                "language": .string(decodedResponse.lang),
+            ]
+            if let pageID = decodedResponse.pageid {
+                build["page_id"] = .number(Double(pageID))
+            }
+            if let timestamp = decodedResponse.timestamp {
+                build["last_edit_time"] = .string(timestamp)
+            }
+            if let description = decodedResponse.description {
+                build["description"] = .string(description)
+            }
+            if let coordinates = decodedResponse.coordinates {
+                build["coordinates"] = [
+                    "latitude": .number(coordinates.lat),
+                    "longitude": .number(coordinates.lon),
+                ]
+            }
+            
+            return build
         } catch {
             return [
                 "error": .string(error.localizedDescription)
@@ -160,8 +196,8 @@ class WikipediaFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         let response: Protobuf.Struct = switch name {
         case "wikipedia_search_page":
             await handleSearchPageCall(parameters: parameters)
-        case "wikipedia_page_raw":
-            await handlePageRawCall(parameters: parameters)
+        case "wikipedia_page_summary":
+            await handlePageSummaryCall(parameters: parameters)
         default:
             [
                 "error": .string("unknown function")
@@ -171,7 +207,7 @@ class WikipediaFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
     }
 }
 
-private struct WikipediaSearchPageResult: Decodable {
+private struct WikipediaSearchPageResponse: Decodable {
     struct Entry: Decodable {
         enum CodingKeys: String, CodingKey {
             case id
@@ -198,4 +234,38 @@ private struct WikipediaSearchPageResult: Decodable {
     }
     
     let pages: [Entry]
+}
+
+private struct WikipediaPageSummaryResponse: Decodable {
+    struct TitlesSet: Decodable {
+        /// the DB key (non-prefixed)
+        let canonical: String
+        /// the normalized title
+        let normalized: String
+        /// the title as it should be displayed to the user
+        let display: String
+    }
+    
+    struct Coordinates: Decodable {
+        /// The latitude
+        let lat: Double
+        /// The longitude
+        let lon: Double
+    }
+    
+    let titles: TitlesSet
+    /// The page ID
+    let pageid: Int?
+    /// First several sentences of an article in plain text
+    let extract: String
+    /// The page language code
+    let lang: String
+    /// The page language direction code
+    let dir: String
+    /// The time when the page was last edited in the [ISO 8601](<https://en.wikipedia.org/wiki/ISO_8601>) format
+    let timestamp: String?
+    /// Wikidata description for the page
+    let description: String?
+    /// The coordinates of the item
+    let coordinates: Coordinates?
 }
