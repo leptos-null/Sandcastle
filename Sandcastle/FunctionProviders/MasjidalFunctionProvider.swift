@@ -25,7 +25,7 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
                 .object(properties: [
                     "status": .string(),
                     "data": .object(properties: [
-                        "salah": .array(items: .object(properties: [
+                        "salah": .array(items: .object(description: "The time when each prayer comes in", properties: [
                             "date": .string(example: "Monday, Mar 30, 2026"),
                             "day": .string(description: "Day of the week"),
                             "hijri_date": .string(description: "Hijri day and year", example: "11, 1447"),
@@ -38,7 +38,7 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
                             "maghrib": .string(),
                             "isha": .string(),
                         ])),
-                        "iqamah": .array(items: .object(properties: [
+                        "iqamah": .array(items: .object(description: "The times members pray together at the masjid", properties: [
                             "date": .string(example: "Monday, Mar 30, 2026"),
                             
                             "fajr": .string(),
