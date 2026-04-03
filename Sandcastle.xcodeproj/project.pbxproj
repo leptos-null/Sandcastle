@@ -14,9 +14,22 @@
 		FA22D0A32F47537A0011992B /* Sandcastle.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sandcastle.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		FA964E232F7E699F00B0141D /* Exceptions for "Sandcastle" folder in "Sandcastle" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = FA22D0A22F47537A0011992B /* Sandcastle */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		FA22D0A52F47537A0011992B /* Sandcastle */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FA964E232F7E699F00B0141D /* Exceptions for "Sandcastle" folder in "Sandcastle" target */,
+			);
 			path = Sandcastle;
 			sourceTree = "<group>";
 		};
@@ -271,6 +284,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Sandcastle/Info.plist;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Interact using your voice";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -311,6 +325,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Sandcastle/Info.plist;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Interact using your voice";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
