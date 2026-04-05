@@ -14,11 +14,11 @@ struct TranscriptEntryView<T: View>: View {
     
     private var backgroundStyle: some ShapeStyle {
         let opacity: Double = switch colorScheme {
-        case .light: 0.95
-        case .dark: 0.8
-        @unknown default: 0.85
+        case .light: 0.125
+        case .dark: 0.25
+        @unknown default: 0.15
         }
-        return .background.opacity(opacity)
+        return .secondary.opacity(opacity)
     }
     
     init(@ViewBuilder content: @escaping () -> T) {

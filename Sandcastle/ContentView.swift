@@ -10,17 +10,6 @@ import SwiftUI
 struct ContentView: View {
     @State private var liveSession = LiveSessionManager()
     
-    @Environment(\.colorScheme) private var colorScheme
-    
-    private var backgroundDarkeningLayer: some ShapeStyle {
-        let opacity: Double = switch colorScheme {
-        case .light: 0.05
-        case .dark: 0.35
-        @unknown default: 0.2
-        }
-        return .black.opacity(opacity)
-    }
-    
     var body: some View {
         ScrollView(.vertical) {
             VStack {
@@ -65,8 +54,6 @@ struct ContentView: View {
                 Spacer()
                 SpectrumAnalyzerView(spectrumAnalyzer: liveSession.audio.inputAudioAnalyzer, shading: .color(.orange), edge: .trailing)
             }
-            .overlay(.thinMaterial)
-            .overlay(backgroundDarkeningLayer)
             .ignoresSafeArea()
         }
         .overlay {
