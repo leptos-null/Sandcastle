@@ -38,6 +38,7 @@ final class LiveSessionManager {
     let tools = Tools()
     let haptics = Haptics()
     let playground = Playground()
+    let settings = Settings()
     
     var isResumable: Bool {
         switch state {
@@ -744,7 +745,8 @@ extension LiveSessionManager {
                 build.append(contentsOf: [
                     manager.playground,
                     manager.usage,
-                    manager.haptics
+                    manager.haptics,
+                    manager.settings,
                 ] as [FunctionProvider])
             }
             return build
@@ -1071,6 +1073,66 @@ extension LiveSessionManager {
                 handleSetIsShowingCall(parameters: parameters)
             case "playground_set_color":
                 handleSetColorCall(parameters: parameters)
+            default:
+                [
+                    "error": .string("unknown function")
+                ]
+            }
+            return .init(response: response)
+        }
+    }
+}
+
+extension LiveSessionManager {
+    @MainActor
+    @Observable
+    final class Settings: Tools.FunctionProvider {
+        enum SpeakerLabel: String, CaseIterable, Hashable, Sendable {
+            case user
+            case model
+        }
+        
+        private static let logger = Logger(subsystem: "LiveSessionManager", category: "Settings")
+        
+        private(set) var userVisualizerColor: ColorDescriptor = .name(.orange)
+        private(set) var modelVisualizerColor: ColorDescriptor = .name(.indigo)
+        
+        let functionDeclarations: [FunctionDeclaration] = [
+            .init(
+                name: "app_visualizer_set_color", description: "Set the audio visualizer color for a given speaker",
+                behavior: nil, parameters: .object(nullable: false, properties: [
+                    "color": ColorDescriptor.schema,
+                    "speaker": .string(format: "enum", enum: SpeakerLabel.allCases.map(\.rawValue)),
+                ]), parametersJsonSchema: nil, response: nil, responseJsonSchema: nil
+            ),
+        ]
+        
+        private func handleVisualizerSetColorCall(parameters: ProtobufStructContainer) -> Protobuf.Struct {
+            do {
+                let colorDescriptor = try ColorDescriptor(parameters.value(for: "color"))
+                let speakerLabel: SpeakerLabel = try parameters.value(for: "speaker").rawRepresentable()
+                
+                switch speakerLabel {
+                case .user:
+                    self.userVisualizerColor = colorDescriptor
+                case .model:
+                    self.modelVisualizerColor = colorDescriptor
+                }
+                
+                return [
+                    "status": .string("success")
+                ]
+            } catch {
+                return [
+                    "error": .string(error.localizedDescription)
+                ]
+            }
+        }
+        
+        func handleFunctionCall(name: String, parameters: ProtobufStructContainer) async -> Tools.ThinnedFunctionResponse {
+            let response: Protobuf.Struct = switch name {
+            case "app_visualizer_set_color":
+                handleVisualizerSetColorCall(parameters: parameters)
             default:
                 [
                     "error": .string("unknown function")

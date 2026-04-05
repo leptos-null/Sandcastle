@@ -50,9 +50,9 @@ struct ContentView: View {
         }
         .background {
             HStack {
-                SpectrumAnalyzerView(spectrumAnalyzer: liveSession.audio.outputAudioAnalyzer, shading: .color(.indigo), edge: .leading)
+                SpectrumAnalyzerView(spectrumAnalyzer: liveSession.audio.outputAudioAnalyzer, shading: .color(Color(liveSession.settings.modelVisualizerColor)), edge: .leading)
                 Spacer()
-                SpectrumAnalyzerView(spectrumAnalyzer: liveSession.audio.inputAudioAnalyzer, shading: .color(.orange), edge: .trailing)
+                SpectrumAnalyzerView(spectrumAnalyzer: liveSession.audio.inputAudioAnalyzer, shading: .color(Color(liveSession.settings.userVisualizerColor)), edge: .trailing)
             }
             .ignoresSafeArea()
         }
