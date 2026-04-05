@@ -138,12 +138,37 @@ final class LiveSessionManager {
             Tool(functionDeclarations: provider.functionDeclarations)
         }
         
+        // In my testing, it appears that the Gemini service injects some additional context for the model.
+        // I believe it's just the date-time string in the following format:
+        //   "Saturday, April 4, 2026 at 11:43 PM UTC"
+        // While this is helpful information, the model seems to sometimes overly rely on the date components which do not reflect the user's timezone.
+        //
+        // For example: Saturday at 1AM UTC is Friday at 6pm PDT - if the user were to ask "What movies are playing tonight",
+        // the model may query tools using Saturday as the date parameter, which does not represent the user's timezone.
+        // Even when providing a tool to resolve the user's timezone, I found that the model would often not call the tool, therefore maintaining the same behavior.
+        //
+        // I don't see a way to remove this date-string from the context, so we'll inject the user's timezone and current time directly.
+        // In my testing, this significantly improved date related prompts.
+        
+        let timeZone: TimeZone = .current
+        let dateFormatStyle: Date.FormatStyle = .init(
+            date: .long, time: .complete,
+            locale: .current, calendar: .current, timeZone: timeZone,
+            capitalizationContext: .middleOfSentence
+        )
         let setup: BidiGenerateContentSetup = .init(
             model: "models/gemini-2.5-flash-native-audio-preview-12-2025",
             generationConfig: .init(
                 responseModalities: [ .audio ],
                 enableAffectiveDialog: true,
                 speechConfig: .init(voiceConfig: .init(value: .prebuiltVoiceConfig(.umbriel)))
+            ),
+            systemInstruction: .init(
+                parts: [
+                    .init(data: .text("The user is in the \(timeZone.identifier) timezone.")),
+                    .init(data: .text("It is \(Date.now.formatted(dateFormatStyle)) for the user.")),
+                ],
+                role: nil
             ),
             tools: tools,
             sessionResumption: .init(handle: resumptionHandle),
@@ -701,7 +726,6 @@ extension LiveSessionManager {
         private let discordFunctionProvider: DiscordFunctionProvider = .init()
         private let wikipediaFunctionProvider: WikipediaFunctionProvider = .init()
         private let masjidalFunctionProvider: MasjidalFunctionProvider = .init()
-        private let dateFunctionProvider: DateFunctionProvider = .init()
         
         var functionProviders: [FunctionProvider] {
             var build: [FunctionProvider] = [
@@ -711,7 +735,6 @@ extension LiveSessionManager {
                 discordFunctionProvider,
                 wikipediaFunctionProvider,
                 masjidalFunctionProvider,
-                dateFunctionProvider,
             ]
             if let manager {
                 build.append(contentsOf: [
