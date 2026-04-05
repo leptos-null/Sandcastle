@@ -60,32 +60,12 @@ class WikipediaFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
     }
     
     // https://en.wikipedia.org/w/index.php?api=mw-extra&title=Special%3ARestSandbox#/default/get_v1_search_page
-    private func handleSearchPageCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
-        guard let termsValue = parameters["terms"] else {
-            return [
-                "error": .string("missing 'terms' parameter")
-            ]
-        }
-        guard case .string(let terms) = termsValue else {
-            return [
-                "error": .string("unsupported 'terms' value")
-            ]
-        }
-        
-        let limit: Int
-        
-        if let limitValue = parameters["limit"] {
-            guard case .number(let floatingLimit) = limitValue else {
-                return [
-                    "error": .string("unsupported 'limit' value")
-                ]
-            }
-            // we don't need to check the bounds, because presumably, Wikipedia API will do that
-            limit = Int(floatingLimit)
-        } else {
-            limit = 15
-        }
+    private func handleSearchPageCall(parameters: ProtobufStructContainer) async -> Protobuf.Struct {
         do {
+            let terms: String = try parameters.value(for: "terms").string()
+            // we don't need to check the bounds, because presumably, Wikipedia API will do that
+            let limit: Int = try parameters.value(for: "limit").accessIfPresent { try $0.integer() } ?? 15
+            
             guard var urlComponents = URLComponents(string: "https://en.wikipedia.org/w/rest.php/v1/search/page") else {
                 throw URLError(.badURL)
             }
@@ -135,19 +115,10 @@ class WikipediaFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
     }
     
     // https://en.wikipedia.org/w/index.php?api=wmf-restbase&title=Special%3ARestSandbox#/Page%20content/get_page_summary__title_
-    private func handlePageSummaryCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
-        guard let titleValue = parameters["title"] else {
-            return [
-                "error": .string("missing 'title' parameter")
-            ]
-        }
-        guard case .string(let title) = titleValue else {
-            return [
-                "error": .string("unsupported 'title' value")
-            ]
-        }
-        
+    private func handlePageSummaryCall(parameters: ProtobufStructContainer) async -> Protobuf.Struct {
         do {
+            let title: String = try parameters.value(for: "title").string()
+            
             guard let baseURL = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary") else {
                 throw URLError(.badURL)
             }
@@ -192,7 +163,7 @@ class WikipediaFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         }
     }
     
-    func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
+    func handleFunctionCall(name: String, parameters: ProtobufStructContainer) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
         let response: Protobuf.Struct = switch name {
         case "wikipedia_search_page":
             await handleSearchPageCall(parameters: parameters)

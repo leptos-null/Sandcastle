@@ -30,20 +30,16 @@ class GitHubFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         self.urlSession = urlSession
     }
     
-    private func handleArbitraryApiCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
-        guard let endpointValue = parameters["endpoint"] else {
-            return [
-                "error": .string("missing 'endpoint' parameter")
-            ]
-        }
-        guard case .string(let endpoint) = endpointValue,
-              let url = URL(string: endpoint) else {
-            return [
-                "error": .string("unsupported 'endpoint' value")
-            ]
-        }
-        
+    private func handleArbitraryApiCall(parameters: ProtobufStructContainer) async -> Protobuf.Struct {
         do {
+            let endpoint: String = try parameters.value(for: "endpoint").string()
+            
+            guard let url = URL(string: endpoint) else {
+                return [
+                    "error": .string("unsupported 'endpoint' value")
+                ]
+            }
+            
             let (responsePayload, urlResponse) = try await urlSession.data(from: url)
             
             let decoder = JSONDecoder()
@@ -79,7 +75,7 @@ class GitHubFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         }
     }
     
-    func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
+    func handleFunctionCall(name: String, parameters: ProtobufStructContainer) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
         let response: Protobuf.Struct = switch name {
         case "github_arbitrary_api":
             await handleArbitraryApiCall(parameters: parameters)

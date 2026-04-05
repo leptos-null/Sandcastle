@@ -21,15 +21,13 @@ class SysctlFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
     init() {
     }
     
-    private func handleSysctlbyname(parameters: Protobuf.Struct) -> Protobuf.Struct {
-        guard let nameValue = parameters["name"] else {
+    private func handleSysctlbyname(parameters: ProtobufStructContainer) -> Protobuf.Struct {
+        let entryName: String
+        do {
+            entryName = try parameters.value(for: "name").string()
+        } catch {
             return [
-                "error": .string("missing 'name' parameter")
-            ]
-        }
-        guard case .string(let entryName) = nameValue else {
-            return [
-                "error": .string("unsupported 'name' value")
+                "error": .string(error.localizedDescription)
             ]
         }
         
@@ -79,7 +77,7 @@ class SysctlFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         }
     }
     
-    func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
+    func handleFunctionCall(name: String, parameters: ProtobufStructContainer) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
         let response: Protobuf.Struct = switch name {
         case "sysctlbyname":
             handleSysctlbyname(parameters: parameters)

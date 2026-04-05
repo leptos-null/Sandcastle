@@ -26,31 +26,11 @@ class DiscordFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         self.urlSession = urlSession
     }
     
-    private func handleSendMessageCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
-        guard let contentValue = parameters["content"] else {
-            return [
-                "error": .string("missing 'content' parameter")
-            ]
-        }
-        guard case .string(let content) = contentValue else {
-            return [
-                "error": .string("unsupported 'content' value")
-            ]
-        }
-        
-        let username: String?
-        switch parameters["username"] {
-        case .string(let value):
-            username = value
-        case .null, nil:
-            username = nil
-        default:
-            return [
-                "error": .string("unsupported 'username' value")
-            ]
-        }
-        
+    private func handleSendMessageCall(parameters: ProtobufStructContainer) async -> Protobuf.Struct {
         do {
+            let content: String = try parameters.value(for: "content").string()
+            let username: String? = try parameters.value(for: "username").accessIfPresent { try $0.string() }
+            
             var bodyFields: Protobuf.Struct = [
                 "content": .string(content)
             ]
@@ -88,7 +68,7 @@ class DiscordFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         }
     }
     
-    func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
+    func handleFunctionCall(name: String, parameters: ProtobufStructContainer) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
         let response: Protobuf.Struct = switch name {
         case "discord_send_message":
             await handleSendMessageCall(parameters: parameters)

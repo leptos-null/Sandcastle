@@ -671,22 +671,26 @@ extension LiveSessionManager {
             )
         ]
         
-        func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> Tools.ThinnedFunctionResponse {
-            guard name == "meta_get_token_usage" else {
-                return .init(response: [
-                    "error": .string("unknown function")
-                ])
-            }
+        func handleFunctionCall(name: String, parameters: ProtobufStructContainer) async -> Tools.ThinnedFunctionResponse {
+            let response: Protobuf.Struct
             
-            let tokenCount = self.tokenCount
-            return .init(response: [
-                "prompt": .number(Double(tokenCount.prompt)),
-                "cached_content": .number(Double(tokenCount.cachedContent)),
-                "response": .number(Double(tokenCount.response)),
-                "tool_use_prompt": .number(Double(tokenCount.toolUsePrompt)),
-                "thoughts": .number(Double(tokenCount.thoughts)),
-                "total": .number(Double(tokenCount.total)),
-            ])
+            switch name {
+            case "meta_get_token_usage":
+                let tokenCount = self.tokenCount
+                response = [
+                    "prompt": .number(Double(tokenCount.prompt)),
+                    "cached_content": .number(Double(tokenCount.cachedContent)),
+                    "response": .number(Double(tokenCount.response)),
+                    "tool_use_prompt": .number(Double(tokenCount.toolUsePrompt)),
+                    "thoughts": .number(Double(tokenCount.thoughts)),
+                    "total": .number(Double(tokenCount.total)),
+                ]
+            default:
+                response = [
+                    "error": .string("unknown function")
+                ]
+            }
+            return .init(response: response)
         }
         
         func onServerMessage(_ message: BidiGenerateContentServerMessage) {
@@ -768,8 +772,9 @@ extension LiveSessionManager {
                             
                             if let self { // not using `guard let` so that we don't continue holding a reference to `self` below
                                 if let resolver = self.functionResolver[functionCall.name] {
+                                    let structContainer = ProtobufStructContainer(underlying: functionCall.args ?? [:])
                                     thinnedResponse = await resolver.handleFunctionCall(
-                                        name: functionCall.name, parameters: functionCall.args ?? [:]
+                                        name: functionCall.name, parameters: structContainer
                                     )
                                 } else {
                                     thinnedResponse = .init(response: [
@@ -858,7 +863,7 @@ extension LiveSessionManager.Tools {
     protocol FunctionProvider {
         var functionDeclarations: [FunctionDeclaration] { get }
         
-        func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> ThinnedFunctionResponse
+        func handleFunctionCall(name: String, parameters: ProtobufStructContainer) async -> ThinnedFunctionResponse
     }
 }
 
@@ -925,16 +930,13 @@ extension LiveSessionManager {
             ),
         ]
         
-        private func handlePlayStatusCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
-            guard let statusValue = parameters["status"] else {
+        private func handlePlayStatusCall(parameters: ProtobufStructContainer) async -> Protobuf.Struct {
+            let statusDescriptor: Haptics.StatusEventDescriptor
+            do {
+                statusDescriptor = try parameters.value(for: "status").rawRepresentable()
+            } catch {
                 return [
-                    "error": .string("missing 'status' parameter")
-                ]
-            }
-            guard case .string(let rawStatus) = statusValue,
-                  let statusDescriptor = Haptics.StatusEventDescriptor(rawValue: rawStatus) else {
-                return [
-                    "error": .string("unsupported 'status' value")
+                    "error": .string(error.localizedDescription)
                 ]
             }
             
@@ -945,43 +947,24 @@ extension LiveSessionManager {
             ]
         }
         
-        private func handlePlayImpactCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
-            let weightDescriptor: Haptics.ImpactDescriptor.Weight
-            
-            if let weightValue = parameters["weight"] {
-                guard case .string(let rawWeight) = weightValue,
-                      let parsedWeight = Haptics.ImpactDescriptor.Weight(rawValue: rawWeight) else {
-                    return [
-                        "error": .string("unsupported 'weight' value")
-                    ]
-                }
-                weightDescriptor = parsedWeight
-            } else {
-                weightDescriptor = .medium
+        private func handlePlayImpactCall(parameters: ProtobufStructContainer) async -> Protobuf.Struct {
+            do {
+                let weightDescriptor: ImpactDescriptor.Weight? = try parameters.value(for: "weight").accessIfPresent { try $0.rawRepresentable() }
+                let resolvedIntensity: Double? = try parameters.value(for: "intensity").accessIfPresent { try $0.double(in: 0.0...1.0) }
+                
+                await playEventDescriptor(.impact(.init(weight: weightDescriptor ?? .medium, intensity: resolvedIntensity ?? 1.0)))
+                
+                return [
+                    "status": .string("success")
+                ]
+            } catch {
+                return [
+                    "error": .string(error.localizedDescription)
+                ]
             }
-            
-            let intensity: Double
-            
-            if let intensityValue = parameters["intensity"] {
-                guard case .number(let intensityCandidate) = intensityValue,
-                      (0.0)...(1.0) ~= intensityCandidate else {
-                    return [
-                        "error": .string("unsupported 'intensity' value")
-                    ]
-                }
-                intensity = intensityCandidate
-            } else {
-                intensity = 1.0
-            }
-            
-            await playEventDescriptor(.impact(.init(weight: weightDescriptor, intensity: intensity)))
-            
-            return [
-                "status": .string("success")
-            ]
         }
         
-        func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> Tools.ThinnedFunctionResponse {
+        func handleFunctionCall(name: String, parameters: ProtobufStructContainer) async -> Tools.ThinnedFunctionResponse {
             let response: Protobuf.Struct = switch name {
             case "haptic_play_status":
                 await handlePlayStatusCall(parameters: parameters)
@@ -1068,46 +1051,39 @@ extension LiveSessionManager {
             ),
         ]
         
-        private func handleSetIsShowingCall(parameters: Protobuf.Struct) -> Protobuf.Struct {
-            guard let showValue = parameters["should_show"] else {
+        private func handleSetIsShowingCall(parameters: ProtobufStructContainer) -> Protobuf.Struct {
+            do {
+                let shouldShow: Bool = try parameters.value(for: "should_show").bool()
+                
+                self.isShowing = shouldShow
+                
                 return [
-                    "error": .string("missing 'should_show' parameter")
+                    "status": .string("success")
+                ]
+            } catch {
+                return [
+                    "error": .string(error.localizedDescription)
                 ]
             }
-            guard case .bool(let shouldShow) = showValue else {
-                return [
-                    "error": .string("unsupported 'should_show' value")
-                ]
-            }
-            
-            self.isShowing = shouldShow
-            
-            return [
-                "status": .string("success")
-            ]
         }
         
-        private func handleSetColorCall(parameters: Protobuf.Struct) -> Protobuf.Struct {
-            guard let colorValue = parameters["color"] else {
+        private func handleSetColorCall(parameters: ProtobufStructContainer) -> Protobuf.Struct {
+            do {
+                let colorDescriptor: Playground.ColorDescriptor = try parameters.value(for: "color").rawRepresentable()
+                
+                self.colorDescriptor = colorDescriptor
+                
                 return [
-                    "error": .string("missing 'color' parameter")
+                    "status": .string("success")
+                ]
+            } catch {
+                return [
+                    "error": .string(error.localizedDescription)
                 ]
             }
-            guard case .string(let rawColor) = colorValue,
-                  let colorDescriptor = Playground.ColorDescriptor(rawValue: rawColor) else {
-                return [
-                    "error": .string("unsupported 'color' value")
-                ]
-            }
-            
-            self.colorDescriptor = colorDescriptor
-            
-            return [
-                "status": .string("success")
-            ]
         }
         
-        func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> Tools.ThinnedFunctionResponse {
+        func handleFunctionCall(name: String, parameters: ProtobufStructContainer) async -> Tools.ThinnedFunctionResponse {
             let response: Protobuf.Struct = switch name {
             case "playground_set_is_showing":
                 handleSetIsShowingCall(parameters: parameters)

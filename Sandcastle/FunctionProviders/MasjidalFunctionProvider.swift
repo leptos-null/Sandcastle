@@ -120,22 +120,15 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         self.urlSession = urlSession
     }
     
-    private func handleTimeRangeCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
-        guard let masjidIdValue = parameters["masjid_id"] else {
-            return [
-                "error": .string("missing 'masjid_id' parameter")
-            ]
-        }
-        guard case .string(let masjidId) = masjidIdValue else {
-            return [
-                "error": .string("unsupported 'masjid_id' value")
-            ]
-        }
-        
+    private func handleTimeRangeCall(parameters: ProtobufStructContainer) async -> Protobuf.Struct {
         // thanks to
         // <https://github.com/siddiki8/masjidal-salah-api/blob/c78879a3ab0b8c5243d41af6f6cfddee870a9013/src/worker.py#L81>
         
         do {
+            let masjidId: String = try parameters.value(for: "masjid_id").string()
+            let fromDate: String? = try parameters.value(for: "from_date").accessIfPresent { try $0.string() }
+            let toDate: String? = try parameters.value(for: "to_date").accessIfPresent { try $0.string() }
+            
             guard var urlComponents = URLComponents(string: urlBase + "/v1/time/range") else {
                 throw URLError(.badURL)
             }
@@ -143,10 +136,10 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
             var queryItems: [URLQueryItem] = [
                 URLQueryItem(name: "masjid_id", value: masjidId),
             ]
-            if case .string(let fromDate) = parameters["from_date"] {
+            if let fromDate {
                 queryItems.append(URLQueryItem(name: "from_date", value: fromDate))
             }
-            if case .string(let toDate) = parameters["to_date"] {
+            if let toDate {
                 queryItems.append(URLQueryItem(name: "to_date", value: toDate))
             }
             urlComponents.queryItems = queryItems
@@ -168,29 +161,13 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         }
     }
     
-    private func handleMasjidsProximityCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
-        guard let latitudeValue = parameters["latitude"] else {
-            return [
-                "error": .string("missing 'latitude' parameter")
-            ]
-        }
-        guard case .number(let latitude) = latitudeValue else {
-            return [
-                "error": .string("unsupported 'latitude' value")
-            ]
-        }
-        guard let longitudeValue = parameters["longitude"] else {
-            return [
-                "error": .string("missing 'longitude' parameter")
-            ]
-        }
-        guard case .number(let longitude) = longitudeValue else {
-            return [
-                "error": .string("unsupported 'longitude' value")
-            ]
-        }
-        
+    private func handleMasjidsProximityCall(parameters: ProtobufStructContainer) async -> Protobuf.Struct {
         do {
+            let latitude: Double = try parameters.value(for: "latitude").double()
+            let longitude: Double = try parameters.value(for: "longitude").double()
+            let distance: Double? = try parameters.value(for: "distance").accessIfPresent { try $0.double() }
+            let page: Double? = try parameters.value(for: "page").accessIfPresent { try $0.double() }
+            
             guard var urlComponents = URLComponents(string: urlBase + "/v3/masjids/proximity") else {
                 throw URLError(.badURL)
             }
@@ -206,10 +183,10 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
                 URLQueryItem(name: "lat", value: latitude.formatted(coordinateComponentStyle)),
                 URLQueryItem(name: "long", value: longitude.formatted(coordinateComponentStyle)),
             ]
-            if case .number(let distance) = parameters["distance"] {
+            if let distance {
                 queryItems.append(URLQueryItem(name: "distance", value: distance.formatted(fixedPointStyle)))
             }
-            if case .number(let page) = parameters["page"] {
+            if let page {
                 queryItems.append(URLQueryItem(name: "page", value: page.formatted(fixedPointStyle)))
             }
             urlComponents.queryItems = queryItems
@@ -231,14 +208,16 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         }
     }
     
-    private func handleMasjidNameToId(parameters: Protobuf.Struct) async -> Protobuf.Struct {
-        guard let nameValue = parameters["name"] else {
+    private func handleMasjidNameToId(parameters: ProtobufStructContainer) async -> Protobuf.Struct {
+        let name: String
+        do {
+            name = try parameters.value(for: "name").string()
+        } catch {
             return [
-                "error": .string("missing 'name' parameter")
+                "error": .string(error.localizedDescription)
             ]
         }
-        guard case .string(let name) = nameValue,
-              let masjidID = Config.masjidEntries[name] else {
+        guard let masjidID = Config.masjidEntries[name] else {
             return [
                 "error": .string("unsupported 'name' value")
             ]
@@ -248,7 +227,7 @@ class MasjidalFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         ]
     }
     
-    func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
+    func handleFunctionCall(name: String, parameters: ProtobufStructContainer) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
         let response: Protobuf.Struct = switch name {
         case "masjidal_time_range":
             await handleTimeRangeCall(parameters: parameters)

@@ -31,19 +31,10 @@ class TimingFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
     init() {
     }
     
-    private func handleSleepCall(parameters: Protobuf.Struct) async -> Protobuf.Struct {
-        guard let secondsValue = parameters["seconds"] else {
-            return [
-                "error": .string("missing 'seconds' parameter")
-            ]
-        }
-        guard case .number(let seconds) = secondsValue else {
-            return [
-                "error": .string("unsupported 'seconds' value")
-            ]
-        }
-        
+    private func handleSleepCall(parameters: ProtobufStructContainer) async -> Protobuf.Struct {
         do {
+            let seconds: Double = try parameters.value(for: "seconds").double()
+            
             try await Task.sleep(for: .seconds(seconds))
             
             return [
@@ -56,31 +47,11 @@ class TimingFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         }
     }
     
-    private func handleCallbackCall(parameters: Protobuf.Struct) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
-        guard let secondsValue = parameters["seconds"] else {
-            return .init(response: [
-                "error": .string("missing 'seconds' parameter")
-            ])
-        }
-        guard case .number(let seconds) = secondsValue else {
-            return .init(response: [
-                "error": .string("unsupported 'seconds' value")
-            ])
-        }
-        
-        guard let schedulingValue = parameters["scheduling"] else {
-            return .init(response: [
-                "error": .string("missing 'scheduling' parameter")
-            ])
-        }
-        guard case .string(let rawScheduling) = schedulingValue,
-              let scheduling = FunctionResponse.Scheduling(rawValue: rawScheduling) else {
-            return .init(response: [
-                "error": .string("unsupported 'scheduling' value")
-            ])
-        }
-        
+    private func handleCallbackCall(parameters: ProtobufStructContainer) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
         do {
+            let seconds: Double = try parameters.value(for: "seconds").double()
+            let scheduling: FunctionResponse.Scheduling = try parameters.value(for: "scheduling").rawRepresentable()
+            
             try await Task.sleep(for: .seconds(seconds))
             
             return .init(response: [
@@ -93,7 +64,7 @@ class TimingFunctionProvider: LiveSessionManager.Tools.FunctionProvider {
         }
     }
     
-    func handleFunctionCall(name: String, parameters: Protobuf.Struct) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
+    func handleFunctionCall(name: String, parameters: ProtobufStructContainer) async -> LiveSessionManager.Tools.ThinnedFunctionResponse {
         switch name {
         case "timing_sleep":
             let response: Protobuf.Struct = await handleSleepCall(parameters: parameters)
