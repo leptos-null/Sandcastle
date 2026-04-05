@@ -1013,28 +1013,10 @@ extension LiveSessionManager {
     @MainActor
     @Observable
     final class Playground: Tools.FunctionProvider {
-        enum ColorDescriptor: String, CaseIterable {
-            case black
-            case blue
-            case brown
-            case cyan
-            case gray
-            case green
-            case indigo
-            case mint
-            case orange
-            case pink
-            case purple
-            case red
-            case teal
-            case white
-            case yellow
-        }
-        
         private static let logger = Logger(subsystem: "LiveSessionManager", category: "Playground")
         
         private(set) var isShowing: Bool = false
-        private(set) var colorDescriptor: ColorDescriptor = .blue
+        private(set) var colorDescriptor: ColorDescriptor = .name(.blue)
         
         let functionDeclarations: [FunctionDeclaration] = [
             .init(
@@ -1046,7 +1028,7 @@ extension LiveSessionManager {
             .init(
                 name: "playground_set_color", description: "Set the color used in the playground",
                 behavior: nil, parameters: .object(nullable: false, properties: [
-                    "color": .string(format: "enum", nullable: false, enum: ColorDescriptor.allCases.map(\.rawValue))
+                    "color": ColorDescriptor.schema
                 ]), parametersJsonSchema: nil, response: nil, responseJsonSchema: nil
             ),
         ]
@@ -1069,7 +1051,7 @@ extension LiveSessionManager {
         
         private func handleSetColorCall(parameters: ProtobufStructContainer) -> Protobuf.Struct {
             do {
-                let colorDescriptor: Playground.ColorDescriptor = try parameters.value(for: "color").rawRepresentable()
+                let colorDescriptor = try ColorDescriptor(parameters.value(for: "color"))
                 
                 self.colorDescriptor = colorDescriptor
                 

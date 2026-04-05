@@ -24,25 +24,3 @@ struct PlaygroundView: View {
         .background(.regularMaterial, in: .rect(cornerRadius: 16))
     }
 }
-
-extension SwiftUI.Color {
-    init(_ playgroundColorDescriptor: LiveSessionManager.Playground.ColorDescriptor) {
-        self = switch playgroundColorDescriptor {
-        case .black: .black
-        case .blue: .blue
-        case .brown: .brown
-        case .cyan: .cyan
-        case .gray: .gray
-        case .green: .green
-        case .indigo: .indigo
-        case .mint: .mint
-        case .orange: .orange
-        case .pink: .pink
-        case .purple: .purple
-        case .red: .red
-        case .teal: .teal
-        case .white: .white
-        case .yellow: .yellow
-        }
-    }
-}
