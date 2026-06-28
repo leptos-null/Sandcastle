@@ -1,5 +1,9 @@
 # Sandcastle
 
+> [!NOTE]
+> This repository is archived. Sandcastle was a prototype that grew into [Vermilion](<https://apps.apple.com/app/id6771868630>), which is now available on the App Store. Vermilion is not open source.
+> You can view or open issues on [Vermilion GitHub repo](<https://github.com/leptos-null/Vermilion>) if you would like to do so.
+
 Sandcastle is a prototype iOS app built on top of the [Gemini Live API](<https://ai.google.dev/gemini-api/docs/live>).
 
 ## Tools
